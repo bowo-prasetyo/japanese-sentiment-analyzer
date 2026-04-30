@@ -1,23 +1,11 @@
-let config = {};
-
-async function loadConfig() {
-  const res = await fetch("config.json");
-  config = await res.json();
-}
-
-function analyze() {
-  const text = document.getElementById("input").value;
-
+export function analyzeText(text, config) {
   let score = 0;
   let hits = 0;
 
   for (let category in config.words) {
-    const words = config.words[category];
-
-    for (let word of words) {
+    for (let word of config.words[category]) {
       if (text.includes(word)) {
-        const polarity = config.polarity[category] || 0;
-        score += polarity;
+        score += config.polarity[category] || 0;
         hits++;
       }
     }
@@ -29,6 +17,5 @@ function analyze() {
   else if (score > 0) result = "ポジティブ";
   else if (score < 0) result = "ネガティブ";
 
-  document.getElementById("result").innerText =
-    `結果: ${result} (score=${score})`;
+  return { result, score, hits };
 }
