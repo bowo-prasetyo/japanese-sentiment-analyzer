@@ -2,13 +2,20 @@ import { analyzeText } from "./engine/analyzer.js";
 
 const Home = {
   template: `
-    <div>
-      <textarea v-model="text" rows="4" cols="50"></textarea><br>
+    <div class="card">
+      <h2>感情分析エンジン</h2>
+
+      <textarea v-model="text" rows="4" placeholder="テキストを入力..."></textarea>
+
       <button @click="analyze">分析</button>
 
-      <p>結果: {{ result }}</p>
-      <p>スコア: {{ score }}</p>
-      <p>ヒット数: {{ hits }}</p>
+      <div v-if="result" :class="['result', resultClass]">
+        {{ result }}
+      </div>
+
+      <div class="stats" v-if="result">
+        スコア: {{ score }} / ヒット: {{ hits }}
+      </div>
     </div>
   `,
   data() {
@@ -19,6 +26,13 @@ const Home = {
       hits: 0,
       config: null
     };
+  },
+  computed: {
+    resultClass() {
+      if (this.result === "ポジティブ") return "positive";
+      if (this.result === "ネガティブ") return "negative";
+      return "neutral";
+    }
   },
   async mounted() {
     const res = await fetch("./data/config.json");
@@ -37,7 +51,7 @@ const Home = {
   }
 };
 
-// ルーター
+// Router
 const routes = [
   { path: "/", component: Home }
 ];
@@ -47,7 +61,6 @@ const router = VueRouter.createRouter({
   routes
 });
 
-// アプリ作成
 const app = Vue.createApp({});
 app.use(router);
 app.mount("#app");
