@@ -1,31 +1,20 @@
 import { analyzeText } from "./engine/analyzer.js";
 
-let config = null;
+let config = {};
 
-// 初期化（JSON読み込み）
-async function init() {
+async function loadConfig() {
   const res = await fetch("./data/config.json");
   config = await res.json();
-
-  console.log("Config loaded");
 }
 
-// ボタン押下時の処理
-window.analyze = function () {
-  const input = document.getElementById("input").value;
-
-  if (!config) {
-    alert("設定ファイルがまだ読み込まれていません");
-    return;
+window.analyze = async function () {
+  if (!config.words) {
+    await loadConfig();
   }
 
-  const result = analyzeText(input, config);
+  const text = document.getElementById("input").value;
+  const result = analyzeText(text, config);
 
   document.getElementById("result").innerText =
-    `結果: ${result.result}
-スコア: ${result.score}
-ヒット数: ${result.hits}`;
+    `結果: ${result.result} (score=${result.score}, hits=${result.hits})`;
 };
-
-// 初期化実行
-init();
