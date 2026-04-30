@@ -3,16 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <title>3層感情分析エンジン</title>
-  <script type="module" src="app.js"></script>
+
+  <!-- Vue 3 CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+  <!-- Vue Router CDN -->
+  <script src="https://unpkg.com/vue-router@4"></script>
+
+  <!-- faviconエラー防止（任意） -->
+  <link rel="icon" href="data:,">
 </head>
+
 <body>
+  <div id="app">
+    <h2>ルールベース3層感情分析</h2>
 
-<h2>ルールベース3層感情分析</h2>
+    <!-- ルーティング表示 -->
+    <router-view></router-view>
+  </div>
 
-<textarea id="input" rows="4" cols="50"></textarea><br>
-<button onclick="analyze()">分析</button>
-
-<p id="result"></p>
-
+  <!-- アプリ本体 -->
+  <script type="module" src="app.js"></script>
 </body>
 </html>
