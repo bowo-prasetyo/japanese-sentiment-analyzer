@@ -89,6 +89,100 @@ GitHub Pagesを利用（公開版）：
 
 ---
 
+## 🔌 Pseudo API（擬似API）
+
+本プロジェクトには、ブラウザ上で動作する**擬似API（Pseudo API）**が含まれています。
+GitHub Pages上でも、URLパラメータを使ってJSON形式の結果を取得できます。
+
+---
+
+### 📍 エンドポイント（擬似）
+
+```
+https://bowo-prasetyo.github.io/japanese-sentiment-analyzer/pseudo-api/?text=今日は嬉しい
+```
+
+---
+
+### 📤 レスポンス例
+
+```json
+{"result":"ポジティブ","score":1,"hits":1}
+```
+
+---
+
+### ⚙️ 仕組み
+
+* 静的HTMLページをロード
+* JavaScriptが実行される
+* 結果をJSONとして画面に出力
+
+```text
+URL → HTML → JS実行 → JSON表示
+```
+
+---
+
+### ⚠️ 注意事項（重要）
+
+Pseudo APIは**本物のAPIではありません**：
+
+| 項目           | Pseudo API      | 本物API            |
+| ------------ | --------------- | ---------------- |
+| レスポンス        | HTML（JSでJSON表示） | JSON             |
+| Content-Type | text/html       | application/json |
+| curl対応       | ❌               | ✔                |
+| JS実行         | 必須              | 不要               |
+
+---
+
+### 🚫 制限
+
+* POSTリクエスト不可
+* URL長制限あり（長文は不可）
+* JavaScript実行環境が必要
+* 外部システム連携には不向き
+
+---
+
+### 🧪 利用例（自動化）
+
+Puppeteer や
+Playwright を使うことで取得可能：
+
+```javascript
+const result = await page.evaluate(() => document.body.textContent);
+const json = JSON.parse(result);
+```
+
+---
+
+### 💡 用途
+
+* デモ・検証用途
+* 軽量な自動化
+* フロントエンドのみでのAPI的利用
+
+---
+
+### 🚀 発展
+
+本格的なAPIとして利用したい場合は、以下のようなサーバレス環境での実装を推奨：
+
+* Vercel
+* Cloudflare Workers
+
+---
+
+### 🧠 コンセプト
+
+> 「APIをサーバで実行するのではなく、クライアントに実行させる」
+
+これは**クライアントサイド実行型（Client-side API）**という設計パターンの一例です。
+
+---
+
 ## 🧩 辞書の構造（config.json）
 
 ```json
