@@ -1,5 +1,7 @@
 # Japanese Rule-Based Sentiment Analyzer
 
+> 🚀 Current Version: v0.2.0（カテゴリ別スコア対応）
+
 ## 🌐 Demo
 
 https://bowo-prasetyo.github.io/japanese-sentiment-analyzer/#/
