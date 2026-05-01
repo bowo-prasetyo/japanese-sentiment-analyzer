@@ -32,6 +32,7 @@ const Home = {
       score: 0,
       hits: 0,
       matchedWords: [], 
+      categoryScore: {},
       config: null
     };
   },
@@ -56,6 +57,7 @@ const Home = {
       this.score = r.score;
       this.hits = r.hits;
       this.matchedWords = r.matchedWords;
+      this.categoryScore = r.categoryScore;
 	}
   }
 };
