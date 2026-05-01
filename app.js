@@ -8,7 +8,14 @@ const Home = {
       <textarea v-model="text" rows="4" placeholder="テキストを入力..."></textarea>
 
       <button @click="analyze">分析</button>
-
+	<div v-if="matchedWords.length" class="stats">
+	  <p>ヒット単語:</p>
+	  <ul>
+	    <li v-for="(m, index) in matchedWords" :key="index">
+	      {{ m.word }}（{{ m.category }} / {{ m.polarity }}）
+	    </li>
+	  </ul>
+	</div>
       <div v-if="result" :class="['result', resultClass]">
         {{ result }}
       </div>
