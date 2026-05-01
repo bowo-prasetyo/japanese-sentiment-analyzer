@@ -2,21 +2,26 @@ export function analyzeText(text, config) {
   let score = 0;
   let hits = 0;
 
-  // ★追加
   let matchedWords = [];
+
+  let categoryScore = {};
 
   for (let category in config.words) {
     for (let word of config.words[category]) {
       if (text.includes(word)) {
-        score += config.polarity[category] || 0;
+        const p = config.polarity[category] || 0;
+
+        score += p;
         hits++;
 
-        // ★ここが追加
         matchedWords.push({
           word: word,
           category: category,
-          polarity: config.polarity[category] || 0
+          polarity: p
         });
+
+        // ★カテゴリスコア集計
+        categoryScore[category] = (categoryScore[category] || 0) + p;
       }
     }
   }
@@ -27,5 +32,5 @@ export function analyzeText(text, config) {
   else if (score > 0) result = "ポジティブ";
   else if (score < 0) result = "ネガティブ";
 
-  return { result, score, hits, matchedWords };
+  return { result, score, hits, matchedWords, categoryScore };
 }
