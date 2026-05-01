@@ -11,9 +11,15 @@ const Home = {
 	<div v-if="matchedWords.length" class="stats">
 	  <p>ヒット単語:</p>
 	  <ul>
-	    <li v-for="(m, index) in matchedWords" :key="index">
-	      {{ m.word }}（{{ m.category }} / {{ m.polarity }}）
-	    </li>
+		<li v-for="m in matchedWords" :key="m.word">
+		  {{ m.word }}（{{ m.category }} /
+		  {{ m.base }}
+		
+		  <span v-if="m.negated">→ {{ -m.base }} 否定</span>
+		  <span v-if="m.multiplier !== 1">×{{ m.multiplier }}</span>
+		
+		  = {{ m.polarity.toFixed(2) }}）
+		</li>
 	  </ul>
 	</div>
       <div v-if="result" :class="['result', resultClass]">
