@@ -31,7 +31,7 @@ const Home = {
       result: "",
       score: 0,
       hits: 0,
-      matchedWords: [], // ★追加
+      matchedWords: [], 
       config: null
     };
   },
@@ -55,7 +55,8 @@ const Home = {
       this.result = r.result;
       this.score = r.score;
       this.hits = r.hits;
-      this.matchedWords = r.matchedWords; // ★追加    }
+      this.matchedWords = r.matchedWords;
+	}
   }
 };
 
