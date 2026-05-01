@@ -23,6 +23,14 @@ const Home = {
       <div class="stats" v-if="result">
         スコア: {{ score }} / ヒット: {{ hits }}
       </div>
+	<div v-if="Object.keys(categoryScore).length" class="stats">
+	  <p>カテゴリ別スコア:</p>
+	  <ul>
+	    <li v-for="(value, key) in categoryScore" :key="key">
+	      {{ key }} : {{ value.toFixed(2) }}
+	    </li>
+	  </ul>
+	</div>
     </div>
   `,
   data() {
