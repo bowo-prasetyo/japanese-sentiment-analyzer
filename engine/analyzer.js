@@ -53,17 +53,23 @@ export function analyzeText(text, config) {
     }
   }
   
+  let normalizedScore = 0;
+
+  if (hits > 0) {
+    normalizedScore = score / Math.sqrt(hits);
+  } 
+  
   let result = "neutral";
   let debugLabel = "neutral";
-  
+ 
   if (hits === 0) {
     result = "neutral";
     debugLabel = "no_hit";
   }
-  else if (score > TH) {
+  else if (normalizedScore > TH) {
     result = "positive";
   }
-  else if (score < -TH) {
+  else if (normalizedScore < -TH) {
     result = "negative";
   }
   else {
@@ -73,6 +79,7 @@ export function analyzeText(text, config) {
   return {
     result,
     score,
+    normalizedScore,
     hits,
     matchedWords,
     categoryScore,
