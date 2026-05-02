@@ -1,28 +1,10 @@
 [
-  {
-    "text": "この映画を見て嬉しい気持ちになった",
-    "label": "positive"
-  },
-  {
-    "text": "とても悲しい気持ちになった映画だった",
-    "label": "negative"
-  },
-  {
-    "text": "特に何も感じなかった",
-    "label": "neutral"
-  },
-  {
-    "text": "気持ちは普通だった",
-    "label": "neutral"
-  },
-  {
-    "text": "めちゃくちゃ嬉しくてワクワクした",
-    "label": "positive"
-  },
-  {
-    "text": "不安で怖い気持ちになった",
-    "label": "negative"
-  },
+  { "text": "この映画を見て嬉しい気持ちになった", "label": "positive" },
+  { "text": "とても悲しい気持ちになった映画だった", "label": "negative" },
+  { "text": "特に何も感じなかった", "label": "neutral" },
+  { "text": "気持ちは普通だった", "label": "neutral" },
+  { "text": "めちゃくちゃ嬉しくてワクワクした", "label": "positive" },
+  { "text": "不安で怖い気持ちになった", "label": "negative" },
   { "text": "プロジェクトが成功して、心の底から達成感を感じている", "label": "positive" },
   { "text": "新しい趣味が見つかって、毎日がキラキラして見える", "label": "positive" },
   { "text": "親友からの温かい言葉に、胸が熱くなった", "label": "positive" },
