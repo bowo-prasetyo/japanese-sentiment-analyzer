@@ -1,3 +1,5 @@
+import { analyzeText } from "./analyzer.js";  
+
 export function evaluate(testset, config) {
   let tp = 0;
   let tn = 0;
