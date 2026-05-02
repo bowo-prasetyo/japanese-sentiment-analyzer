@@ -1,0 +1,26 @@
+[
+  {
+    "text": "この映画は最高だった",
+    "label": "positive"
+  },
+  {
+    "text": "全然面白くないし時間の無駄",
+    "label": "negative"
+  },
+  {
+    "text": "普通の内容だったと思う",
+    "label": "neutral"
+  },
+  {
+    "text": "思ったより良かったけど完璧ではない",
+    "label": "neutral"
+  },
+  {
+    "text": "めちゃくちゃ嬉しい！最高！",
+    "label": "positive"
+  },
+  {
+    "text": "最悪だった二度と見ない",
+    "label": "negative"
+  }
+]
