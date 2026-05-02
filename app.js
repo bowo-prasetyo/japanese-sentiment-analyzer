@@ -30,6 +30,9 @@ const Home = {
 	  <div class="stats" v-if="result">
 		スコア: {{ score }} / ヒット: {{ hits }}
 	  </div>
+      <div class="stats" v-if="debugLabel">
+        debug: {{ debugLabel }}
+      </div>
 		<div v-if="Object.keys(categoryScore).length" class="stats">
 		  <p>カテゴリ別スコア:</p>
 		  <ul>
@@ -84,7 +87,8 @@ const Home = {
       categoryScore: {},
       config: null,
 	  evaluation: null,
-      testset: []
+      testset: {},
+      debugLabel: ""
     };
   },
   computed: {
@@ -111,6 +115,7 @@ const Home = {
       this.hits = r.hits;
       this.matchedWords = r.matchedWords;
       this.categoryScore = r.categoryScore;
+      this.debugLabel = r.debugLabel;
 	},
 	runEvaluation() {
 	  if (!this.config || !this.testset.length) return;
