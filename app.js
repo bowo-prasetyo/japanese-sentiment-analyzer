@@ -1,4 +1,5 @@
 import { analyzeText } from "./engine/analyzer.js";
+import { evaluate } from "./engine/evaluator.js";
 
 const Home = {
   template: `
@@ -8,35 +9,52 @@ const Home = {
       <textarea v-model="text" rows="4" placeholder="テキストを入力..."></textarea>
 
       <button @click="analyze">分析</button>
-	<div v-if="matchedWords.length" class="stats">
-	  <p>ヒット単語:</p>
-	  <ul>
-		<li v-for="m in matchedWords" :key="m.word">
-		  {{ m.word }}（{{ m.category }} /
-		  {{ m.base }}
-		
-		  <span v-if="m.negated">→ {{ -m.base }} 否定</span>
-		  <span v-if="m.multiplier !== 1">×{{ m.multiplier }}</span>
-		
-		  = {{ m.polarity.toFixed(2) }}）
-		</li>
-	  </ul>
-	</div>
-      <div v-if="result" :class="['result', resultClass]">
-        {{ result }}
-      </div>
+		<div v-if="matchedWords.length" class="stats">
+		  <p>ヒット単語:</p>
+		  <ul>
+			<li v-for="m in matchedWords" :key="m.word">
+			  {{ m.word }}（{{ m.category }} /
+			  {{ m.base }}
+			
+			  <span v-if="m.negated">→ {{ -m.base }} 否定</span>
+			  <span v-if="m.multiplier !== 1">×{{ m.multiplier }}</span>
+			
+			  = {{ m.polarity.toFixed(2) }}）
+			</li>
+		  </ul>
+		</div>
+	  <div v-if="result" :class="['result', resultClass]">
+		{{ result }}
+	  </div>
 
-      <div class="stats" v-if="result">
-        スコア: {{ score }} / ヒット: {{ hits }}
-      </div>
-	<div v-if="Object.keys(categoryScore).length" class="stats">
-	  <p>カテゴリ別スコア:</p>
-	  <ul>
-	    <li v-for="(value, key) in categoryScore" :key="key">
-	      {{ key }} : {{ value.toFixed(2) }}
-	    </li>
-	  </ul>
-	</div>
+	  <div class="stats" v-if="result">
+		スコア: {{ score }} / ヒット: {{ hits }}
+	  </div>
+		<div v-if="Object.keys(categoryScore).length" class="stats">
+		  <p>カテゴリ別スコア:</p>
+		  <ul>
+		    <li v-for="(value, key) in categoryScore" :key="key">
+		      {{ key }} : {{ value.toFixed(2) }}
+		    </li>
+		  </ul>
+		</div>
+	  <button @click="runEvaluation">テスト評価</button>
+		<div v-if="evaluation" class="stats">
+		  <p>📊 評価結果</p>
+		  <ul>
+		    <li>Accuracy: {{ (evaluation.accuracy * 100).toFixed(2) }}%</li>
+		    <li>Precision: {{ (evaluation.precision * 100).toFixed(2) }}%</li>
+		    <li>Recall: {{ (evaluation.recall * 100).toFixed(2) }}%</li>
+		  </ul>
+		
+		  <p>Confusion Matrix</p>
+		  <ul>
+		    <li>TP: {{ evaluation.confusion.tp }}</li>
+		    <li>TN: {{ evaluation.confusion.tn }}</li>
+		    <li>FP: {{ evaluation.confusion.fp }}</li>
+		    <li>FN: {{ evaluation.confusion.fn }}</li>
+		  </ul>
+		</div>
     </div>
   `,
   data() {
@@ -47,7 +65,9 @@ const Home = {
       hits: 0,
       matchedWords: [], 
       categoryScore: {},
-      config: null
+      config: null,
+	  evaluation: null,
+      testset: []
     };
   },
   computed: {
@@ -60,6 +80,8 @@ const Home = {
   async mounted() {
     const res = await fetch("./data/config.json");
     this.config = await res.json();
+	res = await fetch("./data/testset.json");
+    this.testset = await res.json();
   },
   methods: {
     analyze() {
@@ -72,6 +94,11 @@ const Home = {
       this.hits = r.hits;
       this.matchedWords = r.matchedWords;
       this.categoryScore = r.categoryScore;
+	},
+	runEvaluation() {
+	  if (!this.config || !this.testset.length) return;
+	
+	  this.evaluation = evaluate(this.testset, this.config);
 	}
   }
 };
