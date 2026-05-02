@@ -5,6 +5,8 @@ export function analyzeText(text, config) {
   let matchedWords = [];
   let categoryScore = {};
 
+  const TH = 0.5; // ← しきい値（まずは0.5推奨）
+
   for (let category in config.words) {
     for (let word of config.words[category]) {
       let index = text.indexOf(word);
@@ -58,11 +60,14 @@ export function analyzeText(text, config) {
     result = "neutral";
     debugLabel = "no_hit";
   }
-  else if (score > 0) {
+  else if (score > TH) {
     result = "positive";
   }
-  else if (score < 0) {
+  else if (score < -TH) {
     result = "negative";
+  }
+  else {
+    result = "neutral";
   }
   
   return {
