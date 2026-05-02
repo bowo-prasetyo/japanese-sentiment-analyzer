@@ -78,7 +78,7 @@ const Home = {
     }
   },
   async mounted() {
-    const res = await fetch("./data/config.json");
+    let res = await fetch("./data/config.json");
     this.config = await res.json();
 	res = await fetch("./data/testset.json");
     this.testset = await res.json();
