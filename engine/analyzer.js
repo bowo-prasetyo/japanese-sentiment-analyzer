@@ -12,7 +12,10 @@ export function analyzeText(text, config) {
       let index = text.indexOf(word);
       if (index === -1) continue;
 
-      let basePolarity = config.polarity[category] || 0;
+      let basePolarity =
+        config.wordPolarity?.[word] ??
+        config.polarity[category] ??
+        0;
       let polarity = basePolarity;
 
       // ===== 否定チェック =====
