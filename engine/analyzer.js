@@ -50,12 +50,27 @@ export function analyzeText(text, config) {
       categoryScore[category] = (categoryScore[category] || 0) + polarity;
     }
   }
-
-  let result = "中立";
-
-  if (hits === 0) result = "判定不能";
-  else if (score > 0) result = "ポジティブ";
-  else if (score < 0) result = "ネガティブ";
-
-  return { result, score, hits, matchedWords, categoryScore };
+  
+  let result = "neutral";
+  let debugLabel = "neutral";
+  
+  if (hits === 0) {
+    result = "neutral";
+    debugLabel = "no_hit";
+  }
+  else if (score > 0) {
+    result = "positive";
+  }
+  else if (score < 0) {
+    result = "negative";
+  }
+  
+  return {
+    result,
+    score,
+    hits,
+    matchedWords,
+    categoryScore,
+    debugLabel
+  };  
 }
