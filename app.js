@@ -55,7 +55,24 @@ const Home = {
 		    <li>FN: {{ evaluation.confusion.fn }}</li>
 		  </ul>
 		</div>
-    </div>
+		<div v-if="evaluation" class="stats">
+		  <p>❌ 誤判定（{{ evaluation.errorCases.length }}件）</p>
+		  <ul>
+		    <li v-for="(r, i) in evaluation.errorCases.slice(0, 20)" :key="i">
+		      <strong>{{ r.text }}</strong><br>
+		      正解: {{ r.label }} / 予測: {{ r.predicted }}<br>
+		      score: {{ r.normalizedScore.toFixed(2) }} / hits: {{ r.hits }}
+		    </li>
+		  </ul>
+		
+		  <p>⚠️ ヒットなし（{{ evaluation.noHitCases.length }}件）</p>
+		  <ul>
+		    <li v-for="(r, i) in evaluation.noHitCases.slice(0, 20)" :key="i">
+		      {{ r.text }}
+		    </li>
+		  </ul>
+		</div>
+	</div>
   `,
   data() {
     return {
