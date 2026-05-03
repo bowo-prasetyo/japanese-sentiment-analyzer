@@ -48,7 +48,7 @@ export function analyzeText(text, config) {
       
       if (isRelieved && basePolarity < 0) {
         // ネガティブが解消 → ポジティブに反転（または弱める）
-        polarity = Math.abs(basePolarity) * 0.2;
+        polarity = Math.abs(basePolarity) * 0.7;
       }
       
       // ❗ 例外チェック
