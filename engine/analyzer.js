@@ -40,7 +40,23 @@ export function analyzeText(text, config) {
         0;
       let polarity = basePolarity;
       
-      const after = text.slice(index + word.length, index + word.length + 6);
+      const afterFull = text.slice(index + word.length);
+      
+      // ===== 接続語でスコープを切る =====
+      let after = afterFull;
+      
+      const boundaries = config.negationBoundaries || ["て", "で", "、", "。", ",", "."];
+      
+      for (let b of boundaries) {
+        const i = after.indexOf(b);
+        if (i !== -1) {
+          after = after.slice(0, i);
+          break;
+        }
+      }
+      
+      // 念のため長さ制限（暴走防止）
+      after = after.slice(0, 6); 
       
       // ===== 改善（リリーフ）チェック =====
       const reliefWords = config.relievers || [];
