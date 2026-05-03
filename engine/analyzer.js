@@ -1,9 +1,6 @@
 export function analyzeText(text, config) {
 
-  // ===== 逆接（後半優先） =====
-  const splitters = ["のに", "けど", "しかし", "にも関わらず", "にもかかわらず"];
-
-  for (let s of splitters) {
+  for (let s of config.splitters) {
     if (text.includes(s)) {
       const parts = text.split(s);
 
