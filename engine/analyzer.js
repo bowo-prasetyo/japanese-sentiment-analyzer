@@ -1,4 +1,29 @@
 export function analyzeText(text, config) {
+
+  // ===== 逆接（後半優先） =====
+  const splitters = ["のに", "けど", "しかし", "にも関わらず", "にもかかわらず"];
+
+  for (let s of splitters) {
+    if (text.includes(s)) {
+      const parts = text.split(s);
+
+      if (parts.length >= 2) {
+        const before = parts[0];
+        const after = parts.slice(1).join(s); // 複数対策
+
+        const beforeResult = analyzeText(before, config);
+        const afterResult  = analyzeText(after, config);
+
+        // 👉 後半を優先（ここがポイント）
+        return {
+          ...afterResult,
+          debugLabel: "contrast_override"
+        };
+      }
+    }
+  }
+
+  // ===== 通常処理 =====
   let score = 0;
   let hits = 0;
 
