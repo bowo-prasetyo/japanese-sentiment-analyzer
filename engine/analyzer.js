@@ -39,13 +39,22 @@ export function analyzeText(text, config) {
         config.polarity[category] ??
         0;
       let polarity = basePolarity;
-
-      // ===== 否定チェック =====
+      
       const after = text.slice(index + word.length, index + word.length + 6);
+      
+      // ===== 改善（リリーフ）チェック =====
+      const reliefWords = config.relievers || [];
+      const isRelieved = reliefWords.some(r => after.includes(r));
+      
+      if (isRelieved && basePolarity < 0) {
+        // ネガティブが解消 → ポジティブに反転（または弱める）
+        polarity = Math.abs(basePolarity) * 0.2;
+      }
       
       // ❗ 例外チェック
       const isException = config.negationExceptions?.some(e => after.includes(e));
       
+      // ===== 否定チェック =====      
       const isNegated =
         !isException &&
         config.negations.some(n => after.includes(n));
