@@ -20,7 +20,13 @@ export function analyzeText(text, config) {
 
       // ===== 否定チェック =====
       const after = text.slice(index + word.length, index + word.length + 6);
-      const isNegated = config.negations.some(n => after.includes(n));
+      
+      // ❗ 例外チェック
+      const isException = config.negationExceptions?.some(e => after.includes(e));
+      
+      const isNegated =
+        !isException &&
+        config.negations.some(n => after.includes(n));
 
       if (isNegated) {
         polarity *= -1;
