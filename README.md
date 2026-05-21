@@ -291,3 +291,9 @@ MIT License
 ## 🙌 作者
 
 Bowo Prasetyo
+
+---
+
+## 🙌 支援
+
+[ChatGPT](https://chatgpt.com/)
