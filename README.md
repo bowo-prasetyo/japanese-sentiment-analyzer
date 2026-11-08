@@ -1,6 +1,6 @@
 # Japanese Rule-Based Sentiment Analyzer
 
-> 🚀 Current Version: v0.3.0（否定処理 + 強調語対応）
+> 🚀 Current Version: v0.4.0（3クラス評価 + 否定スコープ改善）
 
 ## 🌐 Demo
 
@@ -53,21 +53,22 @@ https://bowo-prasetyo.github.io/japanese-sentiment-analyzer/#/
 ### 表示内容
 
 * 判定結果（ポジティブ / ネガティブ / 中立）
-* 総合スコア
-* ヒット数
+* **判定スコア**（判定に実際に使う値 = 合計 ÷ √ヒット数。±しきい値を超えると判定）
+* 合計スコア・ヒット数
 * **ヒット単語一覧（カテゴリ・極性・変換付き）**
 * **カテゴリ別スコア（感情の内訳）**
 
 ---
 
-### 🧾 表示例（v0.3.0）
+### 🧾 表示例（v0.4.0、入力「とても嬉しくない」）
 
 ```
 判定: ネガティブ
-スコア: -1.5
+判定スコア: -1.50（±0.5 を超えると判定）
+合計: -1.50 ÷ √ヒット数 1
 
 ヒット単語:
-嬉し（喜び / +1 → -1 否定 ×1.5 = -1.5）
+嬉し（喜び / 1 → -1 否定 ×1.5 = -1.50）
 
 カテゴリ別スコア:
 喜び: -1.5
@@ -82,15 +83,24 @@ https://bowo-prasetyo.github.io/japanese-sentiment-analyzer/#/
 
 ```
 project/
- ├── index.html         # Vue UI + スタイル
- ├── app.js             # Vueアプリ本体
+ ├── index.html          # Vue UI + スタイル
+ ├── app.js              # Vueアプリ本体
+ ├── ui/
+ │    └── labels.js      # 判定ラベル → 表示名・色の対応
  ├── engine/
- │    └── analyzer.js   # 感情分析ロジック
+ │    ├── analyzer.js    # 感情分析ロジック
+ │    └── evaluator.js   # 3クラス評価（混同行列・F1）
  ├── data/
- │    └── config.json   # 感情辞書
- ├── pseudo-api/        # 擬似API
+ │    ├── config.json    # 感情辞書
+ │    ├── testset.json   # 開発用テストセット
+ │    └── holdout.json   # ホールドアウト（辞書調整に使わない）
+ ├── scripts/
+ │    └── eval.js        # コマンドラインでの評価
+ ├── tests/              # 回帰テスト（node:test）
+ ├── pseudo-api/         # 擬似API
  │    ├── index.html
  │    └── api.js
+ ├── package.json        # npm test / npm run eval 用（依存なし）
  ├── README.md
  └── LICENSE
 ```
@@ -130,6 +140,49 @@ GitHub Pagesを利用（公開版）：
 
 ---
 
+## 📊 評価（精度の測り方）
+
+positive / negative / neutral の **3クラス分類**として評価します。
+
+* **代表指標: Macro-F1**（3クラスのF1の平均。クラスの偏りに強い）
+* Accuracy、クラス別 Precision / Recall / F1
+* 3×3 の混同行列（行: 正解 / 列: 予測）
+
+### テストセットは2種類
+
+| ファイル | 用途 |
+| --- | --- |
+| `data/testset.json` | 開発用。誤判定を見て辞書を調整してよい |
+| `data/holdout.json` | **ホールドアウト。これを見て辞書を調整しない** |
+
+開発用セットは辞書に合わせて作られているため、スコアが高く出やすくなります。
+実際の文章での精度の目安は **ホールドアウトの Macro-F1** です。
+ホールドアウトの誤判定を直したくなったら、その文を開発用セットへ移し、
+ホールドアウトには新しい文を補充してください。
+
+### 現在のスコア（v0.4.0）
+
+| セット | Macro-F1 | Accuracy |
+| --- | --- | --- |
+| 開発用（156件） | 94.2% | 94.2% |
+| ホールドアウト（60件） | 44.0% | 45.0% |
+
+ホールドアウトの誤判定の多くは「ヒットなし」（辞書にない語彙）です。
+
+### 実行方法
+
+ブラウザ: 「テスト評価」ボタンでセットを選んで実行。
+
+コマンドライン（Node.js 22 以上、依存パッケージなし）:
+
+```bash
+npm run eval              # 両セットの指標
+npm run eval -- --errors  # 誤判定の一覧も表示
+npm test                  # 回帰テスト
+```
+
+---
+
 ## 🔌 Pseudo API（擬似API）
 
 ブラウザのみで動作する**擬似API**を提供しています。
@@ -147,7 +200,18 @@ https://bowo-prasetyo.github.io/japanese-sentiment-analyzer/pseudo-api/?text=今
 ### 📤 レスポンス例
 
 ```json
-{"result":"ポジティブ","score":1,"hits":1}
+{
+  "result": "positive",
+  "score": 1,
+  "normalizedScore": 1,
+  "threshold": 0.5,
+  "hits": 1,
+  "matchedWords": [
+    { "word": "嬉し", "category": "喜び", "base": 1, "polarity": 1, "negated": false, "multiplier": 1 }
+  ],
+  "categoryScore": { "喜び": 1 },
+  "debugLabel": "neutral"
+}
 ```
 
 ---
@@ -210,7 +274,17 @@ const json = JSON.parse(result);
     "怒り": ["ムカつ"]
   },
 
-  "negations": ["ない", "なく", "なかった", "ません", "ぬ", "ん"],
+  "negations": ["ない", "なく", "なかった", "ません", "ぬ", "ず"],
+
+  "negationBoundaries": ["て", "で", "、", "。"],
+  "negationBridges": ["ではな", "ていな"],
+  "negationWindow": 8,
+
+  "threshold": 0.5,
+
+  "wordExclusions": {
+    "神": ["精神", "神経"]
+  },
 
   "intensifiers": {
     "とても": 1.5,
@@ -239,6 +313,19 @@ const json = JSON.parse(result);
 
 ---
 
+### 誤ヒットの除外
+
+短い語が別の語の一部としてヒットする場合（例：「精神」の中の「神」）は、
+`wordExclusions` に除外する複合語を追加します。
+
+```json
+"wordExclusions": {
+  "神": ["精神", "神経"]
+}
+```
+
+---
+
 ### 強調語追加
 
 ```json
@@ -255,8 +342,11 @@ const json = JSON.parse(result);
 * 部分一致（`text.includes()`）
 * 語幹ベース検出（例：嬉し → 嬉しい）
 * 否定表現検出（後方ウィンドウ + includes）
+  * スコープは**最も近い**境界（て・で・、など）で切る
+  * ただし「ではない」「ていない」などのブリッジでは切らない（`negationBridges`）
+* 除外複合語による誤ヒット防止（`wordExclusions`）
 * 強調語検出（前方ウィンドウ）
-* スコア合計による判定
+* 判定スコア（合計 ÷ √ヒット数）がしきい値（`threshold`）を超えるかで判定
 * ヒット単語の可視化
 * カテゴリ別スコア集計
 
@@ -265,7 +355,7 @@ const json = JSON.parse(result);
 ## ⚠️ 制限事項
 
 * 形態素解析なし
-* 複雑な否定（例：嬉しいわけではない）未対応
+* 二重否定（例：嬉しくないわけではない → ネガティブと判定される）未対応
 * 文脈理解なし
 * 多義語・重複ヒットあり
 * 強調スコープの曖昧性あり

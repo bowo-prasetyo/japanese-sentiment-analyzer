@@ -20,8 +20,10 @@
     #app {
       display: flex;
       justify-content: center;
-      align-items: center;
-      height: 100vh;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 24px 0;
+      box-sizing: border-box;
     }
 
     .card {
@@ -43,6 +45,7 @@
       border-radius: 8px;
       border: 1px solid #ccc;
       resize: none;
+      box-sizing: border-box;
     }
 
     button {
@@ -95,7 +98,29 @@
 	
 	.stats li {
 	  margin-bottom: 4px;
-	}	  
+	}
+
+	.headline {
+	  font-size: 18px;
+	  font-weight: bold;
+	  color: #333;
+	}
+
+	.stats table {
+	  margin: 0 auto 10px;
+	  border-collapse: collapse;
+	  font-size: 13px;
+	}
+
+	.stats th, .stats td {
+	  border: 1px solid #ddd;
+	  padding: 4px 8px;
+	}
+
+	.stats td.diag {
+	  background: #e8f5e9;
+	  font-weight: bold;
+	}
   </style>
 </head>
 
