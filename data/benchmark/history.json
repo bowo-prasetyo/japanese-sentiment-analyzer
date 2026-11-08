@@ -2,8 +2,8 @@
   {
     "benchmark": "b1",
     "version": "0.7.0",
-    "macroF1": 0.6706,
-    "accuracy": 0.6667,
+    "macroF1": 0.670585,
+    "accuracy": 0.666667,
     "noHit": 78,
     "total": 150,
     "date": "2026-11-08"
@@ -11,8 +11,8 @@
   {
     "benchmark": "b1",
     "version": "0.8.0",
-    "macroF1": 0.69,
-    "accuracy": 0.6867,
+    "macroF1": 0.689993,
+    "accuracy": 0.686667,
     "noHit": 80,
     "total": 150,
     "date": "2026-11-08"
@@ -20,9 +20,18 @@
   {
     "benchmark": "b1",
     "version": "0.9.0",
-    "macroF1": 0.7425,
+    "macroF1": 0.74247,
     "accuracy": 0.74,
     "noHit": 71,
+    "total": 150,
+    "date": "2026-11-08"
+  },
+  {
+    "benchmark": "b1",
+    "version": "0.10.0",
+    "macroF1": 0.776794,
+    "accuracy": 0.773333,
+    "noHit": 68,
     "total": 150,
     "date": "2026-11-08"
   }

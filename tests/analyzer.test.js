@@ -362,3 +362,48 @@ test("v0.9.0 語彙の否定（役立たない・納得いかない・失敗し�
   assert.equal(analyzeText("どうしても納得いかない", config).result, "negative");
   assert.equal(analyzeText("気遣いが足りない", config).result, "negative");
 });
+
+// ===== v0.10.0 語彙（結果の描写） =====
+
+const outcomeCases = {
+  positive: [
+    "最後まで目が離せない", "時間を忘れて遊んだ", "一気に読んでしまった", "長年の悩みが解消した",
+    "新品のように見違えた", "気兼ねなく過ごせた", "修理で元通りになった", "問題なく使えている",
+    "思わぬ掘り出し物", "サイズがぴったり"
+  ],
+  negative: [
+    "再生が途中で止まる", "すぐにアプリが固まる", "写真と違う商品が届いた", "部品が一つ足りない",
+    "半分しか入っていない", "発送の連絡がない", "呼んでも来ない", "肌に合わなかった",
+    "何度も目が覚めた", "途中で寝てしまった", "要望に応じてもらえない", "担当者がつかまらない",
+    "片方から音が出ない", "変更が反映されていない", "きつくて履けない", "洗濯したら色移りした"
+  ],
+  neutral: [
+    "追加料金なしで利用できる", "電池が切れたので交換した", "長く使えるかどうか調べている"
+  ]
+};
+
+for (const [label, texts] of Object.entries(outcomeCases)) {
+  for (const text of texts) {
+    test(`v0.10.0 語彙: 「${text}」→ ${label}`, () => {
+      assert.equal(analyzeText(text, config).result, label);
+    });
+  }
+}
+
+test("否定されたときだけ数える語（v0.10.0 追加分）は肯定形では数えない", () => {
+  for (const text of ["快く応じてもらえた", "すぐ担当者がつかまった", "ちゃんと音が出る", "設定が反映された", "楽に履ける"]) {
+    assert.ok(!analyzeText(text, config).matchedWords.some((m) => m.negatedOnly), text);
+  }
+});
+
+test("「〜しか…ない」「いつまで経っても…ない」の否定は句の一部なので反転しない", () => {
+  for (const text of ["中身が半分しか入っていなかった", "いつまで経っても料理が来ない"]) {
+    assert.equal(analyzeText(text, config).result, "negative", text);
+  }
+});
+
+test("「〜かどうか」（間接疑問）の中の語は数えない", () => {
+  const r = analyzeText("長く使えるかどうか調べている", config);
+  assert.equal(r.hits, 0);
+  assert.equal(r.skippedWords[0].marker, "かどうか");
+});

@@ -29,7 +29,7 @@ const summary = [];
 for (const id of Object.keys(manifest)) {
   const bench = loadBenchmark(id);
   const e = evaluate(bench.items, config);
-  const r = { benchmark: id, version, macroF1: +e.macroF1.toFixed(4), accuracy: +e.accuracy.toFixed(4), noHit: e.noHitCases.length, total: e.total };
+  const r = { benchmark: id, version, macroF1: +e.macroF1.toFixed(6), accuracy: +e.accuracy.toFixed(6), noHit: e.noHitCases.length, total: e.total };
 
   console.log(`\n== ${id}（固定 ${bench.frozen}, ${e.total}件） v${version}`);
   console.log(`macro-F1 ${pct(e.macroF1)}   accuracy ${pct(e.accuracy)}   no-hit ${e.noHitCases.length}`);
