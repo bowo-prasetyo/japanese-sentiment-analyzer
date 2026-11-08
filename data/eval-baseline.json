@@ -1,10 +1,10 @@
 {
   "dev": {
-    "macroF1": 0.9462,
-    "total": 261
+    "macroF1": 0.8953,
+    "total": 321
   },
   "holdout": {
-    "macroF1": 0.6638,
+    "macroF1": 0.4962,
     "total": 60
   }
 }
