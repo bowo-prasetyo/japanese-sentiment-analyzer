@@ -31,6 +31,14 @@ const Home = {
 			</li>
 		  </ul>
 		</div>
+		<div v-if="skippedWords.length" class="stats">
+		  <p>除外した単語（書き手の評価ではないため）:</p>
+		  <ul>
+			<li v-for="s in skippedWords" :key="s.word">
+			  {{ s.word }}（{{ s.category }} / {{ s.reason === "condition" ? "条件" : "説明" }}「{{ s.marker }}」）
+			</li>
+		  </ul>
+		</div>
 	  <div v-if="result" :class="['result', label.cssClass]">
 		{{ label.text }}
 	  </div>
@@ -111,6 +119,7 @@ const Home = {
       threshold: 0,
       hits: 0,
       matchedWords: [],
+      skippedWords: [],
       categoryScore: {},
       config: null,
       evaluation: null,
@@ -146,6 +155,7 @@ const Home = {
       this.threshold = r.threshold;
       this.hits = r.hits;
       this.matchedWords = r.matchedWords;
+      this.skippedWords = r.skippedWords ?? [];
       this.categoryScore = r.categoryScore;
       this.debugLabel = r.debugLabel;
     },

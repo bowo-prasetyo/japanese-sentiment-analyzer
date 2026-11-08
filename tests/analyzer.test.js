@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { analyzeText, findMatch, cutAtBoundary } from "../engine/analyzer.js";
+import { analyzeText, findMatch, cutAtBoundary, findHypotheticalMarker } from "../engine/analyzer.js";
 
 const config = JSON.parse(
   readFileSync(new URL("../data/config.json", import.meta.url), "utf8")
@@ -176,4 +176,64 @@ test("通常の語の否定反転は従来どおり", () => {
   const m = analyzeText("嬉しくない", config).matchedWords[0];
   assert.equal(m.negatedOnly, undefined);
   assert.equal(m.polarity, -1);
+});
+
+// ===== 条件・説明の中の語は数えない =====
+
+test("条件（〜ない場合は）の中の否定された期待動詞は数えない", () => {
+  const r = analyzeText("動かない場合は、まず電源コードを確認してください", config);
+  assert.equal(r.hits, 0);
+  assert.equal(r.result, "neutral");
+  assert.deepEqual(r.skippedWords.map((s) => [s.word, s.reason, s.marker]), [["動か", "condition", "場合"]]);
+});
+
+test("条件の中の通常の語も、否定の有無にかかわらず数えない", () => {
+  for (const text of ["悲しくない場合は連絡してください", "壊れた場合は交換します", "最悪の場合、延期する"]) {
+    const r = analyzeText(text, config);
+    assert.equal(r.hits, 0, text);
+  }
+});
+
+test("〜ないときは は条件として扱う", () => {
+  assert.equal(analyzeText("効かないときは、医師に相談してください", config).skippedWords[0].reason, "condition");
+});
+
+test("対象の説明（〜ための・〜向けの・〜にお悩み）の中の語は数えない", () => {
+  for (const text of ["眠れない夜のための音楽", "眠れない毎日を送る人のための本", "疲れやすい人向けのサプリ", "寂しい夜にお悩みの方へ"]) {
+    const r = analyzeText(text, config);
+    assert.equal(r.hits, 0, text);
+    assert.equal(r.skippedWords[0].reason, "description", text);
+  }
+});
+
+test("条件・説明でない否定や過去の出来事は従来どおり数える", () => {
+  const cases = {
+    "使えないアプリで、すぐに削除した": "negative",   // 連体修飾でも不満
+    "壊れたときは本当に困った": "negative",           // 過去の出来事（〜たときは）
+    "雨のため、試合が中止になって残念だった": "negative", // 理由の「ため」（ための ではない）
+    "使ったらすぐに壊れた": "negative",               // 継起の「たら」
+    "眠れない夜が続いてつらい": "negative"
+  };
+  for (const [text, label] of Object.entries(cases)) {
+    assert.equal(analyzeText(text, config).result, label, text);
+    assert.equal(analyzeText(text, config).skippedWords.length, 0, text);
+  }
+});
+
+test("目印が語より前にある場合は影響しない", () => {
+  const r = analyzeText("初めての場合でも、スタッフが丁寧に教えてくれた", config);
+  assert.equal(r.result, "positive");
+  assert.equal(r.skippedWords.length, 0);
+});
+
+test("目印は同じ節（境界まで）の中だけを見る", () => {
+  // 「、」で節が切れるので、後ろの「場合」は前の語に影響しない
+  const r = analyzeText("料理は美味しかった、雨の場合は送迎もある", config);
+  assert.equal(r.result, "positive");
+});
+
+test("findHypotheticalMarker は条件を説明より優先して返す", () => {
+  const cfg = { conditionMarkers: ["場合"], descriptionMarkers: ["ための"] };
+  assert.deepEqual(findHypotheticalMarker("ための場合", cfg), { reason: "condition", marker: "場合" });
+  assert.equal(findHypotheticalMarker("ない夜", cfg), null);
 });
