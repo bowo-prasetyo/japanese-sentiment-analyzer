@@ -34,7 +34,7 @@ const Home = {
 	  </div>
 
 	  <div class="stats" v-if="result">
-		判定スコア: {{ normalizedScore.toFixed(2) }}（±{{ threshold }} を超えると判定）<br>
+		判定スコア: {{ normalizedScore.toFixed(2) }}（±{{ threshold }} 以上で判定）<br>
 		合計: {{ score.toFixed(2) }} ÷ √ヒット数 {{ hits }}
 	  </div>
       <div class="stats" v-if="debugLabel">

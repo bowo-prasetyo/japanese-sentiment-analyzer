@@ -15,7 +15,7 @@ test("「神」は「精神」「神経」の内側ではヒットしない", ()
 });
 
 test("「神」単独の用法はヒットする", () => {
-  const r = analyzeText("神対応でした", config);
+  const r = analyzeText("この漫画は神", config);
   assert.ok(words(r).includes("神"));
   assert.equal(r.result, "positive");
 });
@@ -68,9 +68,65 @@ test("判定は返却される normalizedScore と threshold に一致する", (
     const r = analyzeText(text, config);
     const expected =
       r.hits === 0 ? "neutral"
-      : r.normalizedScore > r.threshold ? "positive"
-      : r.normalizedScore < -r.threshold ? "negative"
+      : r.normalizedScore >= r.threshold ? "positive"
+      : r.normalizedScore <= -r.threshold ? "negative"
       : "neutral";
     assert.equal(r.result, expected, text);
   }
+});
+
+// ===== 最長一致 =====
+
+test("長い語の内側にある短い語は数えない（期待外れ ⊃ 期待）", () => {
+  const r = analyzeText("期待外れだった", config);
+  assert.deepEqual(words(r), ["期待外れ"]);
+  assert.equal(r.result, "negative");
+});
+
+test("最長一致: 神対応 は 神 ではなく 神対応 としてヒットする", () => {
+  assert.deepEqual(words(analyzeText("神対応でした", config)), ["神対応"]);
+});
+
+test("短い語でも、長い語の外にある別の出現は数える", () => {
+  const r = analyzeText("期待外れだったが、次に期待", config);
+  assert.deepEqual(words(r), ["期待外れ", "期待"]);
+});
+
+test("同じ箇所に同じ語が複数カテゴリで登録されていても二重に数えない", () => {
+  // 「心細」は 悲しみ と 不安 の両方に登録されている
+  assert.equal(analyzeText("心細い", config).hits, 1);
+});
+
+test("ヒット単語は文中の出現順に並ぶ", () => {
+  const r = analyzeText("悲しいけど嬉しい、でも怖い", { ...config, splitters: [] });
+  const idx = r.matchedWords.map((m) => "悲しいけど嬉しい、でも怖い".indexOf(m.word));
+  assert.deepEqual(idx, [...idx].sort((a, b) => a - b));
+});
+
+// ===== しきい値 =====
+
+test("しきい値ちょうどの単語1つでも判定できる（±0.5 以上で判定）", () => {
+  assert.equal(analyzeText("微妙", config).result, "negative");   // -0.5
+  assert.equal(analyzeText("安い", config).result, "positive");   // +0.5
+});
+
+// ===== レビュー語彙 =====
+
+const cases = {
+  positive: ["このパスタは本当に美味しかった", "スタッフが親切だった", "使いやすいアプリ", "コスパがいい", "おすすめです", "全く飽きない"],
+  negative: ["届いてすぐ壊れた", "期待外れだった", "店員が無愛想", "使いにくい", "割高だと思う", "二度と行かない", "がっかりした", "イライラする", "うまくいかず落ち込んだ"],
+  neutral: ["最低限の荷物で出かけた", "大丈夫です", "祖母の面倒を見る", "失礼します", "友達が見にくる", "いいえ、違います"]
+};
+
+for (const [label, texts] of Object.entries(cases)) {
+  for (const text of texts) {
+    test(`レビュー語彙: 「${text}」→ ${label}`, () => {
+      assert.equal(analyzeText(text, config).result, label);
+    });
+  }
+}
+
+test("否定はレビュー語彙にも効く", () => {
+  assert.equal(analyzeText("美味しくない", config).result, "negative");
+  assert.equal(analyzeText("使いにくくはない", config).matchedWords[0].negated, true);
 });
