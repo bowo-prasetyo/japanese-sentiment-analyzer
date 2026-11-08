@@ -312,6 +312,9 @@ export function analyzeText(text, config, options = {}) {
     skippedWords,
     categoryScore,
     debugLabel,
-    morphology: Boolean(morph)
+    morphology: Boolean(morph),
+    // 極性を持つ語が1つも見つからなかった → 「判定できません」（中立と判定したわけではない）。
+    // 評価との互換のため result は "neutral" のまま
+    abstained: hits === 0
   };
 }

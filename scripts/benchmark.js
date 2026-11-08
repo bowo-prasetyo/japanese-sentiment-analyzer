@@ -37,10 +37,11 @@ const summary = [];
 for (const id of Object.keys(manifest)) {
   const bench = loadBenchmark(id);
   const e = evaluate(bench.items, config, { tokenizer });
-  const r = { benchmark: id, version, macroF1: +e.macroF1.toFixed(6), accuracy: +e.accuracy.toFixed(6), noHit: e.noHitCases.length, total: e.total };
+  const r = { benchmark: id, version, macroF1: +e.macroF1.toFixed(6), accuracy: +e.accuracy.toFixed(6), noHit: e.noHitCases.length, total: e.total, coverage: +e.coverage.toFixed(6), accuracyOnDecided: +e.accuracyOnDecided.toFixed(6) };
 
   console.log(`\n== ${id}（固定 ${bench.frozen}, ${e.total}件） v${version}  形態素解析: ${tokenizer ? "有効" : "無効"}`);
   console.log(`macro-F1 ${pct(e.macroF1)}   accuracy ${pct(e.accuracy)}   no-hit ${e.noHitCases.length}`);
+  console.log(`coverage ${pct(e.coverage)}   accuracy on decided ${pct(e.accuracyOnDecided)}`);
   console.log("\n  class      precision  recall   F1      support");
   for (const l of LABELS) {
     const c = e.perClass[l];

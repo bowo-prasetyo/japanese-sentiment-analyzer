@@ -457,3 +457,19 @@ test("「まともに眠れていない」の否定は動詞のもの（まと�
   assert.ok(!r.matchedWords.some((m) => m.word === "まとも"));
   assert.equal(r.result, "negative");
 });
+
+// ===== 判定できません（abstained） =====
+
+test("極性を持つ語が見つからなければ abstained（result は互換のため neutral）", () => {
+  for (const text of ["今日は火曜日です", "驚いた", "動かない場合は、販売店にご連絡ください"]) {
+    const r = analyzeText(text, config);
+    assert.equal(r.abstained, true, text);
+    assert.equal(r.result, "neutral", text);
+  }
+});
+
+test("語が見つかって中立になった場合は abstained ではない", () => {
+  const r = analyzeText("楽しかったけど悲しい", { ...config, splitters: [] });
+  assert.equal(r.abstained, false);
+  assert.equal(r.result, "neutral");
+});

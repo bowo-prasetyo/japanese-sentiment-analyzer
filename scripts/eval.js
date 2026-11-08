@@ -48,6 +48,7 @@ for (const [key, { file, data }] of Object.entries(sets)) {
 
   console.log(`\n== ${key} (${file})  n=${e.total}`);
   console.log(`macro-F1 ${pct(e.macroF1)}   accuracy ${pct(e.accuracy)}   no-hit ${e.noHitCases.length}`);
+  console.log(`coverage ${pct(e.coverage)}   accuracy on decided ${pct(e.accuracyOnDecided)}`);
 
   console.log("\n  class      precision  recall     F1   support");
   for (const l of LABELS) {
