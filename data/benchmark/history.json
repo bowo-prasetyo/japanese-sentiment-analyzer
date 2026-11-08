@@ -1,0 +1,11 @@
+[
+  {
+    "benchmark": "b1",
+    "version": "0.7.0",
+    "macroF1": 0.6706,
+    "accuracy": 0.6667,
+    "noHit": 78,
+    "total": 150,
+    "date": "2026-11-08"
+  }
+]

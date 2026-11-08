@@ -1,0 +1,2 @@
+# ベンチマークはハッシュで固定しているため、改行コードを LF に固定する
+data/benchmark/*.json text eol=lf
