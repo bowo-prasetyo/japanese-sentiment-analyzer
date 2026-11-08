@@ -87,3 +87,9 @@ test("複数カテゴリへの登録は既知のもの（v0.3 以前から）だ
   }
   assert.deepEqual(extra, []);
 });
+
+test("negationWindowOverrides の語は negatedPolarity に登録されている", () => {
+  for (const word of Object.keys(config.negationWindowOverrides ?? {})) {
+    assert.ok(word in config.negatedPolarity, `「${word}」が negatedPolarity にありません`);
+  }
+});

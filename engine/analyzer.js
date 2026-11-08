@@ -183,7 +183,8 @@ export function analyzeText(text, config) {
     }
 
     // 念のため長さ制限（暴走防止）
-    let after = clause.slice(0, windowSize);
+    // 「二度と…ない」「〜しか…ない」のように否定が節の終わりに来る構文は、語ごとに長い窓を使える
+    let after = clause.slice(0, config.negationWindowOverrides?.[word] ?? windowSize);
 
     // 否定は最も近い語のもの: 後ろに別の辞書語があれば、そこで否定スコープを切る
     // （「かゆみが全然治まらない」の「ない」は「治ま」のもので、「かゆみ」には及ばない）
@@ -231,7 +232,9 @@ export function analyzeText(text, config) {
 
     // ===== 集計 =====
     score += polarity;
-    hits++;
+    // 極性 0 の語（例:「驚い」）は根拠として表示するが、ヒット数には数えない
+    // （数えると √ヒット数 で割るときに、他の語のスコアを薄めてしまう）
+    if (polarity !== 0) hits++;
 
     matchedWords.push({
       word,

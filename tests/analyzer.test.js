@@ -141,14 +141,14 @@ test("否定された期待動詞はネガティブになる", () => {
 });
 
 test("肯定形の期待動詞はヒットに数えない", () => {
-  const r = analyzeText("ぐっすり眠れた", config);
+  const r = analyzeText("昨夜は眠れた", config);
   assert.equal(r.hits, 0);
   assert.equal(r.result, "neutral");
 });
 
 test("肯定形の期待動詞は他の語のスコアを薄めない", () => {
-  const withVerb = analyzeText("美味しくて、ぐっすり眠れた", config);
-  const without = analyzeText("美味しくて、ぐっすりした", config);
+  const withVerb = analyzeText("美味しくて、昨夜は眠れた", config);
+  const without = analyzeText("美味しくて、昨夜は寝た", config);
   assert.equal(withVerb.hits, 1);
   assert.equal(withVerb.normalizedScore, without.normalizedScore);
 });
@@ -406,4 +406,54 @@ test("「〜かどうか」（間接疑問）の中の語は数えない", () =>
   const r = analyzeText("長く使えるかどうか調べている", config);
   assert.equal(r.hits, 0);
   assert.equal(r.skippedWords[0].marker, "かどうか");
+});
+
+// ===== 極性 0 の語はヒット数に数えない =====
+
+test("極性 0 の語（驚い）は根拠に表示するが、スコアを薄めない", () => {
+  const withZero = analyzeText("予想より早く届いて驚いた", config);
+  const without = analyzeText("予想より早く届いた", config);
+  assert.ok(withZero.matchedWords.some((m) => m.word === "驚い" && m.polarity === 0));
+  assert.equal(withZero.hits, 1);
+  assert.equal(withZero.normalizedScore, without.normalizedScore);
+  assert.equal(withZero.result, "positive");
+});
+
+test("極性 0 の語だけなら中立", () => {
+  const r = analyzeText("驚いた", config);
+  assert.equal(r.hits, 0);
+  assert.equal(r.result, "neutral");
+});
+
+// ===== v0.12.0 語彙（表現の型ごと） =====
+
+const v12Cases = {
+  positive: [
+    "最後まで丁寧に対応してくれた", "粘り強く探してくれた", "返信が早くて助かる", "この店にしてよかった",
+    "これを選んでよかった", "期待を裏切らない味", "ぜひ試してほしい", "値段に見合う品質",
+    "腰痛が軽くなった", "ぐっすり眠れた", "みずみずしい果物", "スープまで飲み干した"
+  ],
+  negative: [
+    "買わなくてよかったと思う", "期待を裏切られた", "勝手に設定を変えられた", "頼んでいない物が届いた",
+    "説明がさっぱり分からない", "写真と全然違った", "値段に見合っていない", "サービスの質が落ちた",
+    "二度と使うことはないだろう", "二度とあの店には行かない", "まともな対応がなかった",
+    "中に水が入ってきた", "冷房が効きすぎて寒い", "広告ばかりで邪魔"
+  ],
+  neutral: [
+    "お見合いの席で会った", "電車に乗り遅れないように急いだ"
+  ]
+};
+
+for (const [label, texts] of Object.entries(v12Cases)) {
+  for (const text of texts) {
+    test(`v0.12.0 語彙: 「${text}」→ ${label}`, () => {
+      assert.equal(analyzeText(text, config).result, label);
+    });
+  }
+}
+
+test("「まともに眠れていない」の否定は動詞のもの（まともは数えない）", () => {
+  const r = analyzeText("三日間まともに眠れていない", config);
+  assert.ok(!r.matchedWords.some((m) => m.word === "まとも"));
+  assert.equal(r.result, "negative");
 });
