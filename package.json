@@ -1,8 +1,8 @@
 {
-  "name": "japanese-sentiment-analyzer",
+  "name": "tenbin",
   "version": "0.14.0",
   "private": true,
-  "description": "Browser-only, rule-based Japanese sentiment analyzer",
+  "description": "Tenbin: explainable, browser-only, rule-based Japanese review sentiment analyzer",
   "type": "module",
   "scripts": {
     "test": "node --test \"tests/**/*.test.js\"",
