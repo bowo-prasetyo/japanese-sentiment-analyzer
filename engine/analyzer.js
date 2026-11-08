@@ -1,6 +1,20 @@
 const DEFAULT_BOUNDARIES = ["て", "で", "、", "。", ",", "."];
 const DEFAULT_NEGATION_WINDOW = 8;
 const DEFAULT_THRESHOLD = 0.5;
+const DEFAULT_HYPOTHETICAL_WINDOW = 12;
+
+// 語の後ろ（同じ節の中）に条件・説明の目印があれば、その種類と目印を返す
+export function findHypotheticalMarker(scope, config) {
+  const kinds = [
+    ["condition", config.conditionMarkers],
+    ["description", config.descriptionMarkers]
+  ];
+  for (const [reason, markers] of kinds) {
+    const marker = (markers || []).find((m) => scope.includes(m));
+    if (marker) return { reason, marker };
+  }
+  return null;
+}
 
 // 位置 index から長さ len の一致が、除外複合語（例: 「神」に対する「精神」）の内側にあるか
 function isInsideExcludedCompound(text, index, len, compounds) {
@@ -105,6 +119,8 @@ export function analyzeText(text, config) {
   const boundaries = config.negationBoundaries || DEFAULT_BOUNDARIES;
   const bridges = config.negationBridges || [];
   const windowSize = config.negationWindow ?? DEFAULT_NEGATION_WINDOW;
+  const hypotheticalWindow = config.hypotheticalWindow ?? DEFAULT_HYPOTHETICAL_WINDOW;
+  const skippedWords = [];
 
   for (const { word, category, index } of findMatches(text, config)) {
     // 否定されたときだけ数える語（例:「眠れ」「効か」）。
@@ -121,10 +137,21 @@ export function analyzeText(text, config) {
 
     // ===== 接続語でスコープを切る（最も近い境界） =====
     const afterFull = text.slice(index + word.length);
-    let after = cutAtBoundary(afterFull, boundaries, bridges);
+    const clause = cutAtBoundary(afterFull, boundaries, bridges);
+
+    // ===== 条件・説明のチェック =====
+    // 「動かない場合は〜」「壊れた場合は〜」（条件）や
+    // 「眠れない夜のための〜」「眠れない人向けの〜」（対象の説明）は、
+    // 書き手の体験ではないので、否定の有無にかかわらずその語を数えない。
+    const markerScope = clause.slice(0, hypotheticalWindow);
+    const skipReason = findHypotheticalMarker(markerScope, config);
+    if (skipReason) {
+      skippedWords.push({ word, category, ...skipReason });
+      continue;
+    }
 
     // 念のため長さ制限（暴走防止）
-    after = after.slice(0, windowSize);
+    let after = clause.slice(0, windowSize);
 
     // ===== 改善（リリーフ）チェック =====
     const reliefWords = config.relievers || [];
@@ -212,6 +239,7 @@ export function analyzeText(text, config) {
     threshold: TH,
     hits,
     matchedWords,
+    skippedWords,
     categoryScore,
     debugLabel
   };

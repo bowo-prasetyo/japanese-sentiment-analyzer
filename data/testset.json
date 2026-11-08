@@ -408,5 +408,23 @@
   { "text": "先週から駅の工事が始まった", "label": "neutral" },
   { "text": "店は日曜日と祝日が定休日です", "label": "neutral" },
   { "text": "使い方がわからないときはサポート窓口に電話する", "label": "neutral" },
-  { "text": "今日は特に予定がない", "label": "neutral" }
+  { "text": "今日は特に予定がない", "label": "neutral" },
+
+  { "text": "子ども向けの本だが、大人も楽しめた", "label": "positive" },
+  { "text": "初めての場合でも、スタッフが丁寧に教えてくれた", "label": "positive" },
+
+  { "text": "使えないアプリで、すぐに削除した", "label": "negative" },
+  { "text": "壊れたときは本当に困った", "label": "negative" },
+  { "text": "雨のため、試合が中止になって残念だった", "label": "negative" },
+  { "text": "使ったらすぐに壊れた", "label": "negative" },
+  { "text": "眠れない夜が続いてつらい", "label": "negative" },
+
+  { "text": "画面が映らない場合は、ケーブルの接続を確認してください", "label": "neutral" },
+  { "text": "返信が来ない場合は、迷惑メールフォルダもご確認ください", "label": "neutral" },
+  { "text": "効かないときは、医師に相談してください", "label": "neutral" },
+  { "text": "体調が悪い場合は、無理をせず休んでください", "label": "neutral" },
+  { "text": "最悪の場合、予定を一日ずらすことになる", "label": "neutral" },
+  { "text": "集中できない人のための勉強法をまとめた記事を読んだ", "label": "neutral" },
+  { "text": "疲れやすい人向けのサプリが話題になっている", "label": "neutral" },
+  { "text": "寂しい夜にお悩みの方へ、ラジオ番組のご案内です", "label": "neutral" }
 ]
