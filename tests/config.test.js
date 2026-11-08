@@ -45,3 +45,9 @@ test("レビュー観点カテゴリの語はすべて個別の極性を持つ",
     }
   }
 });
+
+test("followedBy の語は辞書に登録されている", () => {
+  for (const word of Object.keys(config.followedBy ?? {})) {
+    assert.ok(allWords.has(word), `followedBy の「${word}」が words にありません`);
+  }
+});

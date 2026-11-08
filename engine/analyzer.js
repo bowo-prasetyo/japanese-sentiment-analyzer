@@ -2,6 +2,17 @@ const DEFAULT_BOUNDARIES = ["て", "で", "、", "。", ",", "."];
 const DEFAULT_NEGATION_WINDOW = 8;
 const DEFAULT_THRESHOLD = 0.5;
 const DEFAULT_HYPOTHETICAL_WINDOW = 12;
+const DEFAULT_HYPOTHETICAL_BOUNDARIES = ["、", "。", ",", "."];
+
+// 最初の句読点まで（句読点を含む）、最大 maxLength 文字を返す
+export function scopeUntilPunctuation(text, boundaries, maxLength) {
+  let end = text.length;
+  for (const b of boundaries) {
+    const i = text.indexOf(b);
+    if (i !== -1 && i + 1 < end) end = i + 1;
+  }
+  return text.slice(0, Math.min(end, maxLength));
+}
 
 // 語の後ろ（同じ節の中）に条件・説明の目印があれば、その種類と目印を返す
 export function findHypotheticalMarker(scope, config) {
@@ -120,9 +131,15 @@ export function analyzeText(text, config) {
   const bridges = config.negationBridges || [];
   const windowSize = config.negationWindow ?? DEFAULT_NEGATION_WINDOW;
   const hypotheticalWindow = config.hypotheticalWindow ?? DEFAULT_HYPOTHETICAL_WINDOW;
+  const markerBoundaries = config.hypotheticalBoundaries || DEFAULT_HYPOTHETICAL_BOUNDARIES;
   const skippedWords = [];
 
-  for (const { word, category, index } of findMatches(text, config)) {
+  const found = findMatches(text, config);
+  const overlapsOther = (cur) =>
+    found.some((o) => o !== cur && o.index < cur.index + cur.word.length && cur.index < o.index + o.word.length);
+
+  for (const match of found) {
+    const { word, category, index } = match;
     // 否定されたときだけ数える語（例:「眠れ」「効か」）。
     // 肯定形（眠れた・効く）は期待どおりの結果なので、ヒットに数えない。
     const negatedOnlyPolarity = config.negatedPolarity?.[word];
@@ -139,11 +156,26 @@ export function analyzeText(text, config) {
     const afterFull = text.slice(index + word.length);
     const clause = cutAtBoundary(afterFull, boundaries, bridges);
 
+    // ===== 用法のチェック（followedBy） =====
+    // 例:「よく」は直後が「な」「て」のとき（よくない・よくなった・よくて）だけ
+    // 形容詞「良く」として数え、副詞（よく壊れる・よくある・よく似た）は数えない。
+    const followers = config.followedBy?.[word];
+    if (followers && !followers.some((f) => afterFull.startsWith(f))) {
+      // 「ほどよく」の「よく」のように別の語と重なる場合は、除外一覧にも出さない
+      if (!overlapsOther(match)) {
+        skippedWords.push({ word, category, reason: "usage", marker: followers.join("・") });
+      }
+      continue;
+    }
+
     // ===== 条件・説明のチェック =====
     // 「動かない場合は〜」「壊れた場合は〜」（条件）や
     // 「眠れない夜のための〜」「眠れない人向けの〜」（対象の説明）は、
     // 書き手の体験ではないので、否定の有無にかかわらずその語を数えない。
-    const markerScope = clause.slice(0, hypotheticalWindow);
+    // 目印は、否定スコープ（て・で でも切る）とは別に、句読点までを見る。
+    //   - 「壊れていた場合、」の「て」や「使えない場合でも」の「で」で切らないため
+    //   - 句読点そのものも含める（「最悪の場合、」の判定に必要）
+    const markerScope = scopeUntilPunctuation(afterFull, markerBoundaries, hypotheticalWindow);
     const skipReason = findHypotheticalMarker(markerScope, config);
     if (skipReason) {
       skippedWords.push({ word, category, ...skipReason });

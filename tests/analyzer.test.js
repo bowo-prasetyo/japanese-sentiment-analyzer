@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { analyzeText, findMatch, cutAtBoundary, findHypotheticalMarker } from "../engine/analyzer.js";
+import { analyzeText, findMatch, cutAtBoundary, findHypotheticalMarker, scopeUntilPunctuation } from "../engine/analyzer.js";
 
 const config = JSON.parse(
   readFileSync(new URL("../data/config.json", import.meta.url), "utf8")
@@ -184,7 +184,7 @@ test("条件（〜ない場合は）の中の否定された期待動詞は数�
   const r = analyzeText("動かない場合は、まず電源コードを確認してください", config);
   assert.equal(r.hits, 0);
   assert.equal(r.result, "neutral");
-  assert.deepEqual(r.skippedWords.map((s) => [s.word, s.reason, s.marker]), [["動か", "condition", "場合"]]);
+  assert.deepEqual(r.skippedWords.map((s) => [s.word, s.reason, s.marker]), [["動か", "condition", "場合は"]]);
 });
 
 test("条件の中の通常の語も、否定の有無にかかわらず数えない", () => {
@@ -236,4 +236,78 @@ test("findHypotheticalMarker は条件を説明より優先して返す", () => 
   const cfg = { conditionMarkers: ["場合"], descriptionMarkers: ["ための"] };
   assert.deepEqual(findHypotheticalMarker("ための場合", cfg), { reason: "condition", marker: "場合" });
   assert.equal(findHypotheticalMarker("ない夜", cfg), null);
+});
+
+// ===== 場合: 条件（場合は）と頻度（場合が）を区別する =====
+
+test("「場合は／場合には／場合、／場合でも」は条件として数えない", () => {
+  for (const text of ["動かない場合は連絡してください", "動かない場合には連絡してください", "最悪の場合、延期する", "使えない場合でも返金します"]) {
+    const r = analyzeText(text, config);
+    assert.equal(r.hits, 0, text);
+    assert.equal(r.skippedWords[0].reason, "condition", text);
+  }
+});
+
+test("「場合が多い／場合がある／場合もある」（頻度）は数える", () => {
+  for (const text of ["アプリが起動しない場合が多い", "電源が入らない場合がある", "画面が映らない場合もある"]) {
+    const r = analyzeText(text, config);
+    assert.equal(r.hits, 1, text);
+    assert.equal(r.result, "negative", text);
+  }
+});
+
+test("「場合があります／場合がございます」（丁寧な注意書き）は数えない", () => {
+  for (const text of ["古い機種では動かない場合があります", "届かない場合がございます"]) {
+    assert.equal(analyzeText(text, config).hits, 0, text);
+  }
+});
+
+test("節を区切る「、」の直前の「場合」も条件として認識する", () => {
+  assert.equal(analyzeText("壊れていた場合、交換します", config).skippedWords[0].marker, "場合、");
+});
+
+// ===== よく: 形容詞「良く」だけを数え、副詞（頻繁に・十分に）は数えない =====
+
+test("「よくない／よくなった／よくて」は形容詞として数える", () => {
+  assert.equal(analyzeText("あまりよくない", config).result, "negative");
+  assert.equal(analyzeText("前よりよくなった", config).result, "positive");
+  assert.equal(analyzeText("味もよくて満足", config).matchedWords.some((m) => m.word === "よく"), true);
+});
+
+test("副詞の「よく」（よく壊れる・よくある・よく似た）は数えない", () => {
+  for (const text of ["よく止まる", "よく聞かれる質問", "よく似た商品", "彼はよく行く", "子どもにはよく、手を洗わせる"]) {
+    const r = analyzeText(text, config);
+    assert.ok(!r.matchedWords.some((m) => m.word === "よく"), text);
+    assert.equal(r.skippedWords.find((s) => s.word === "よく")?.reason, "usage", text);
+  }
+});
+
+test("「電源が入らない場合がよくあって困っている」はネガティブ", () => {
+  assert.equal(analyzeText("電源が入らない場合がよくあって困っている", config).result, "negative");
+});
+
+test("「ちょうどよく／ほどよく／気持ちよく／心地よく」は複合語として肯定", () => {
+  for (const text of ["量もちょうどよく", "ほどよく冷えている", "気持ちよく過ごせた", "心地よく眠れた"]) {
+    assert.equal(analyzeText(text, config).result, "positive", text);
+  }
+});
+
+test("漢字の「良く」には followedBy を適用しない", () => {
+  assert.ok(analyzeText("良く出来ている", config).matchedWords.some((m) => m.word === "良く"));
+});
+
+test("条件の目印は「て」「で」で切らず、句読点まで見る（ていた場合・場合でも）", () => {
+  assert.equal(analyzeText("壊れていた場合、交換します", config).hits, 0);
+  assert.equal(analyzeText("使えない場合でも返金します", config).hits, 0);
+});
+
+test("scopeUntilPunctuation は句読点を含めて切り、最大長で止める", () => {
+  assert.equal(scopeUntilPunctuation("ていた場合、交換", ["、"], 12), "ていた場合、");
+  assert.equal(scopeUntilPunctuation("あいうえおかきくけこさしすせそ", ["、"], 5), "あいうえお");
+});
+
+test("複合語と重なる副詞の「よく」は除外一覧にも出さない（ほどよく）", () => {
+  const r = analyzeText("肌触りがほどよく柔らかい", config);
+  assert.deepEqual(r.matchedWords.map((m) => m.word), ["ほどよ"]);
+  assert.deepEqual(r.skippedWords, []);
 });
