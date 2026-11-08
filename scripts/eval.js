@@ -3,6 +3,7 @@
 //   npm run eval -- --errors              誤判定も表示
 //   npm run eval -- --check               ベースラインより Macro-F1 が下がったら失敗（CI 用）
 //   npm run eval -- --update-baseline     現在の Macro-F1 をベースラインとして保存
+//   npm run eval -- --only dev            開発用セットだけ評価（辞書の調整中はこれを使い、ホールドアウトを見ない）
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { evaluate, LABELS } from "../engine/evaluator.js";
@@ -21,11 +22,23 @@ const args = process.argv.slice(2);
 const showErrors = args.includes("--errors");
 const check = args.includes("--check");
 const updateBaseline = args.includes("--update-baseline");
+const onlyIndex = args.indexOf("--only");
+const only = onlyIndex === -1 ? null : args[onlyIndex + 1];
+
+if (only && !sets[only]) {
+  console.error(`--only には ${Object.keys(sets).join(" / ")} のいずれかを指定してください`);
+  process.exit(2);
+}
+if (only && updateBaseline) {
+  console.error("--update-baseline は全セットで実行してください（--only と併用不可）");
+  process.exit(2);
+}
 
 const pct = (x) => (x * 100).toFixed(1).padStart(5) + "%";
 const current = {};
 
 for (const [key, { file, data }] of Object.entries(sets)) {
+  if (only && key !== only) continue;
   const e = evaluate(data, config);
   current[key] = { macroF1: e.macroF1, accuracy: e.accuracy, total: e.total };
 
@@ -70,6 +83,7 @@ if (check) {
 
   console.log("\n== baseline check (macro-F1)");
   for (const [key, base] of Object.entries(baseline)) {
+    if (only && key !== only) continue;
     const now = current[key];
     if (!now) {
       console.log(`  ✗ ${key}: 評価セットが見つかりません`);
