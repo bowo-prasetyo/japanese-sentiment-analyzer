@@ -130,3 +130,50 @@ test("否定はレビュー語彙にも効く", () => {
   assert.equal(analyzeText("美味しくない", config).result, "negative");
   assert.equal(analyzeText("使いにくくはない", config).matchedWords[0].negated, true);
 });
+
+// ===== 否定されたときだけ数える語（negatedPolarity） =====
+
+test("否定された期待動詞はネガティブになる", () => {
+  for (const text of ["暑くて眠れなかった", "エアコンが効かず困った", "全く休めなかった", "電源が入らなくなった", "ネットにつながらない"]) {
+    const r = analyzeText(text, config);
+    assert.equal(r.result, "negative", text);
+  }
+});
+
+test("肯定形の期待動詞はヒットに数えない", () => {
+  const r = analyzeText("ぐっすり眠れた", config);
+  assert.equal(r.hits, 0);
+  assert.equal(r.result, "neutral");
+});
+
+test("肯定形の期待動詞は他の語のスコアを薄めない", () => {
+  const withVerb = analyzeText("美味しくて、ぐっすり眠れた", config);
+  const without = analyzeText("美味しくて、ぐっすりした", config);
+  assert.equal(withVerb.hits, 1);
+  assert.equal(withVerb.normalizedScore, without.normalizedScore);
+});
+
+test("ヒット情報に negatedOnly と否定時の極性が入る", () => {
+  const m = analyzeText("眠れなかった", config).matchedWords[0];
+  assert.equal(m.word, "眠れ");
+  assert.equal(m.negatedOnly, true);
+  assert.equal(m.negated, true);
+  assert.equal(m.base, 0);
+  assert.equal(m.polarity, config.negatedPolarity["眠れ"]);
+});
+
+test("否定された期待動詞にも強調語が効く", () => {
+  const m = analyzeText("とても使えない", config).matchedWords[0];
+  assert.equal(m.multiplier, 1.5);
+  assert.equal(m.polarity, config.negatedPolarity["使え"] * 1.5);
+});
+
+test("否定の例外（〜しかない など）では数えない", () => {
+  assert.equal(analyzeText("休めしかない", { ...config, negationExceptions: ["しかない"] }).hits, 0);
+});
+
+test("通常の語の否定反転は従来どおり", () => {
+  const m = analyzeText("嬉しくない", config).matchedWords[0];
+  assert.equal(m.negatedOnly, undefined);
+  assert.equal(m.polarity, -1);
+});

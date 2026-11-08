@@ -20,9 +20,11 @@ const Home = {
 		  <ul>
 			<li v-for="m in matchedWords" :key="m.word">
 			  {{ m.word }}（{{ m.category }} /
-			  {{ m.base }}
-
-			  <span v-if="m.negated">→ {{ -m.base }} 否定</span>
+			  <template v-if="m.negatedOnly">否定 → {{ m.negatedPolarity }}</template>
+			  <template v-else>
+			    {{ m.base }}
+			    <span v-if="m.negated">→ {{ -m.base }} 否定</span>
+			  </template>
 			  <span v-if="m.multiplier !== 1">×{{ m.multiplier }}</span>
 
 			  = {{ m.polarity.toFixed(2) }}）

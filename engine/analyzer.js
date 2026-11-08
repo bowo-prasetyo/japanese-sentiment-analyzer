@@ -107,10 +107,16 @@ export function analyzeText(text, config) {
   const windowSize = config.negationWindow ?? DEFAULT_NEGATION_WINDOW;
 
   for (const { word, category, index } of findMatches(text, config)) {
-    let basePolarity =
-      config.wordPolarity?.[word] ??
-      config.polarity[category] ??
-      0;
+    // 否定されたときだけ数える語（例:「眠れ」「効か」）。
+    // 肯定形（眠れた・効く）は期待どおりの結果なので、ヒットに数えない。
+    const negatedOnlyPolarity = config.negatedPolarity?.[word];
+    const isNegatedOnly = negatedOnlyPolarity !== undefined;
+
+    let basePolarity = isNegatedOnly
+      ? 0
+      : config.wordPolarity?.[word] ??
+        config.polarity[category] ??
+        0;
     let polarity = basePolarity;
 
     // ===== 接続語でスコープを切る（最も近い境界） =====
@@ -137,7 +143,11 @@ export function analyzeText(text, config) {
       !isException &&
       config.negations.some(n => after.includes(n));
 
-    if (isNegated) {
+    if (isNegatedOnly) {
+      if (!isNegated) continue; // 肯定形 → 数えない（スコアを薄めない）
+      polarity = negatedOnlyPolarity;
+    }
+    else if (isNegated) {
       polarity *= -1;
     }
 
@@ -164,7 +174,8 @@ export function analyzeText(text, config) {
       base: basePolarity,
       polarity,
       negated: isNegated,
-      multiplier
+      multiplier,
+      ...(isNegatedOnly && { negatedOnly: true, negatedPolarity: negatedOnlyPolarity })
     });
 
     categoryScore[category] = (categoryScore[category] || 0) + polarity;

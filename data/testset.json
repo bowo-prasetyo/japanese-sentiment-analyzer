@@ -324,5 +324,28 @@
   { "text": "ホテルの朝食は七時から始まる", "label": "neutral" },
   { "text": "母は毎朝コーヒーを飲む", "label": "neutral" },
   { "text": "新しいスマホを買うか迷っている", "label": "neutral" },
-  { "text": "説明書によると、洗濯機で洗えるらしい", "label": "neutral" }
+  { "text": "説明書によると、洗濯機で洗えるらしい", "label": "neutral" },
+
+  { "text": "静かな部屋でぐっすり眠れて、朝食も美味しかった", "label": "positive" },
+  { "text": "設定が簡単で、すぐに使えて便利だった", "label": "positive" },
+  { "text": "担当者の対応が迅速で、問題はすぐに解決した", "label": "positive" },
+  { "text": "薬がよく効いて、すっかり楽になった", "label": "positive" },
+  { "text": "古いパソコンでもサクサク動いて快適", "label": "positive" },
+
+  { "text": "新しいプリンターが全く反応しない", "label": "negative" },
+  { "text": "説明どおりにしてもアプリが起動しなかった", "label": "negative" },
+  { "text": "枕が合わなくて、三日間まともに眠れていない", "label": "negative" },
+  { "text": "薬を飲んでも頭痛が治らない", "label": "negative" },
+  { "text": "ネットにつながらなくて仕事ができなかった", "label": "negative" },
+  { "text": "注文した商品がいつまでも届かない", "label": "negative" },
+  { "text": "何度試してもログインできない", "label": "negative" },
+  { "text": "このリモコンはすぐに電池が切れて使えなくなる", "label": "negative" },
+  { "text": "周りが騒がしくて集中できない", "label": "negative" },
+  { "text": "問い合わせたが、問題は解決しなかった", "label": "negative" },
+
+  { "text": "明日は早起きなので、今夜は早めに休めるようにしたい", "label": "neutral" },
+  { "text": "新しいスマホで使えるアプリを調べている", "label": "neutral" },
+  { "text": "荷物は明日届く予定です", "label": "neutral" },
+  { "text": "説明書には起動の手順が書いてある", "label": "neutral" },
+  { "text": "このカメラは暗い場所でも使えるらしい", "label": "neutral" }
 ]
