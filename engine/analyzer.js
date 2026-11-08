@@ -185,6 +185,12 @@ export function analyzeText(text, config) {
     // 念のため長さ制限（暴走防止）
     let after = clause.slice(0, windowSize);
 
+    // 否定は最も近い語のもの: 後ろに別の辞書語があれば、そこで否定スコープを切る
+    // （「かゆみが全然治まらない」の「ない」は「治ま」のもので、「かゆみ」には及ばない）
+    const wordEnd = index + word.length;
+    const next = found.find((o) => o.index >= wordEnd);
+    if (next) after = after.slice(0, next.index - wordEnd);
+
     // ===== 改善（リリーフ）チェック =====
     const reliefWords = config.relievers || [];
     const isRelieved = reliefWords.some(r => after.includes(r));
