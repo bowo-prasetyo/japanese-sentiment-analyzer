@@ -340,6 +340,7 @@ const Home = {
   components: { AnalysisPanel },
   template: `
     <div class="card">
+      <img class="logo-mark" src="assets/mark.svg" alt="" width="56" height="56">
       <h1>Tenbin（天秤）<span class="subtitle">日本語レビュー感情分析</span></h1>
       <p class="tagline">理由が見える・ブラウザだけで動く</p>
       <analysis-panel></analysis-panel>

@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.svg" alt="Tenbin（天秤）" width="320"></p>
+
 # Tenbin（天秤）— 日本語レビュー感情分析
 
 **Explainable Japanese Review Sentiment Analyzer** — 理由が見える・ブラウザだけで動く
@@ -10,6 +12,21 @@
 
 * 一般向け: https://bowo-prasetyo.github.io/japanese-sentiment-analyzer/#/
 * 開発者向け（評価・デバッグ）: https://bowo-prasetyo.github.io/japanese-sentiment-analyzer/#/dev
+
+---
+
+## 🎨 ロゴ
+
+天秤の両皿が**吹き出し**（左＝ポジティブの緑、右＝ネガティブの赤）になっています。
+竿は水平で、ことばを公平に、重さが見える形で量ることを表します。色は画面の判定表示（`.positive` / `.negative`）と同じです。
+
+| ファイル | 用途 |
+| --- | --- |
+| `assets/mark.svg` | マーク単体（画面のヘッダー） |
+| `assets/logo.svg` | マーク＋ロゴタイプ（README など。文字はシステムフォントで描画） |
+| `assets/favicon.svg` | ファビコン（ダークモードでは支柱が明るい色に変わる） |
+| `assets/favicon-32.png` | SVG ファビコン非対応ブラウザ用 |
+| `assets/apple-touch-icon.png` | ホーム画面用（180×180、白背景） |
 
 ---
 
@@ -130,6 +147,7 @@
 ```
 project/
  ├── index.html          # Vue UI + スタイル
+ ├── assets/             # ロゴ・ファビコン（下の「🎨 ロゴ」参照）
  ├── app.js              # Vueアプリ本体（一般向け #/ ・開発者向け #/dev）
  ├── ui/
  │    ├── labels.js      # 判定ラベル → 表示名・色の対応（判定できません を含む）

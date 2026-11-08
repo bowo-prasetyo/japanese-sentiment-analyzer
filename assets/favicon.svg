@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="t">
+  <title id="t">Tenbin（天秤）</title>
+  <!-- 天秤の支柱・竿・吊りひも（竿は水平＝公平に量る） -->
+  <style>.ink{fill:#263238}.str{stroke:#263238}@media (prefers-color-scheme:dark){.ink{fill:#eceff1}.str{stroke:#eceff1}}</style>
+  <g class="ink">
+    <circle cx="32" cy="9" r="4"/>
+    <rect x="29.5" y="11" width="5" height="42" rx="2"/>
+    <rect x="18" y="52" width="28" height="6" rx="3"/>
+    <rect x="5" y="14" width="54" height="5" rx="2.5"/>
+  </g>
+  <g class="str" fill="none" stroke-width="2" stroke-linecap="round">
+    <path d="M4 32 L11 17 L18 32"/>
+    <path d="M46 32 L53 17 L60 32"/>
+  </g>
+  <!-- 皿＝吹き出し（左: ポジティブ、右: ネガティブ）。しっぽは外側の下 -->
+  <path fill="#2e7d32" d="M5 31 H17 a4 4 0 0 1 4 4 v5 a4 4 0 0 1 -4 4 H8 L3 49 L4 43.6 a4 4 0 0 1 -3 -3.6 v-5 a4 4 0 0 1 4 -4 Z"/>
+  <path fill="#c62828" d="M59 31 H47 a4 4 0 0 0 -4 4 v5 a4 4 0 0 0 4 4 H56 L61 49 L60 43.6 a4 4 0 0 0 3 -3.6 v-5 a4 4 0 0 0 -4 -4 Z"/>
+</svg>
