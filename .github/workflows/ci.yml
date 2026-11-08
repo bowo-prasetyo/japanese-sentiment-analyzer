@@ -26,3 +26,6 @@ jobs:
 
       - name: Verify pinned CDN scripts (version + SRI)
         run: npm run check:cdn
+
+      - name: Blind benchmark (report only, never fails on score)
+        run: npm run bench -- --summary
