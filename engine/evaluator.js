@@ -43,6 +43,7 @@ export function evaluate(testset, config, options = {}) {
       score: r.score,
       normalizedScore: r.normalizedScore,
       hits: r.hits,
+      abstained: r.abstained,
       matchedWords: r.matchedWords,
       correct
     };
@@ -76,6 +77,13 @@ export function evaluate(testset, config, options = {}) {
   return {
     total,
     accuracy: safeDiv(correctCount, total),
+    // 判定できた（abstained でない）文の割合と、その中での正解率。
+    // macroF1 / accuracy では、判定できなかった文は「中立」と予測したものとして数える
+    coverage: safeDiv(results.filter((r) => !r.abstained).length, total),
+    accuracyOnDecided: safeDiv(
+      results.filter((r) => !r.abstained && r.correct).length,
+      results.filter((r) => !r.abstained).length
+    ),
     macroF1, // ← 代表指標
     perClass,
     confusion,

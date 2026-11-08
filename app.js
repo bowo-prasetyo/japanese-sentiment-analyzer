@@ -1,6 +1,10 @@
 import { analyzeText } from "./engine/analyzer.js";
 import { evaluate, LABELS } from "./engine/evaluator.js";
-import { displayLabel } from "./ui/labels.js";
+import { displayLabel, displayResult } from "./ui/labels.js";
+import {
+  USER_CATEGORY, LIMITS, validateEntry, warningsFor, selectableCategories, mergeUserDictionary,
+  upsertEntry, removeEntry, serialize, parseImport, loadEntries, saveEntries
+} from "./ui/userDictionary.js";
 import { splitCategoryScores, formatScore, scoreClass } from "./ui/breakdown.js";
 
 // 辞書は一度だけ読み込み、画面間で共有する
@@ -75,6 +79,114 @@ const MORPH_LABELS = {
   failed: "読み込めませんでした（文字列モードで分析しています）"
 };
 
+// ===== ユーザー辞書: 閲覧者のブラウザに保存（画面間で共有）。評価（#/dev のテスト評価）には使わない =====
+const browserStorage = (() => { try { return window.localStorage; } catch { return null; } })();
+const userDict = Vue.reactive({ entries: [], categories: [], loaded: false });
+loadConfig().then((config) => {
+  userDict.categories = selectableCategories(config);
+  userDict.entries = loadEntries(browserStorage, userDict.categories);
+  userDict.loaded = true;
+});
+function setUserEntries(entries) {
+  userDict.entries = entries;
+  return saveEntries(browserStorage, entries);
+}
+
+const UserDictionaryPanel = {
+  template: `
+    <details class="user-dict" :open="open" @toggle="open = $event.target.open">
+      <summary>ユーザー辞書（{{ dict.entries.length }} / {{ limits.maxEntries }} 語）</summary>
+      <p class="muted">
+        辞書にない自分の分野の語を追加できます。語は活用で変わらない部分（例: 「コシがある」→「コシがあ」）で登録します。
+        このブラウザにだけ保存されます（残す・共有するには「書き出し」）。
+      </p>
+      <form class="user-dict-form" @submit.prevent="add">
+        <input v-model="word" placeholder="語（例: コシがあ）" aria-label="語" maxlength="40">
+        <input v-model.number="polarity" type="number" step="0.1" :min="limits.minPolarity" :max="limits.maxPolarity" aria-label="極性">
+        <select v-model="category" aria-label="カテゴリ">
+          <option v-for="c in dict.categories" :key="c" :value="c">{{ c }}</option>
+        </select>
+        <button type="submit" class="small">追加</button>
+      </form>
+      <p class="muted">極性: 肯定は 0.5〜1.0、否定は −0.5〜−1.0 が目安（範囲 {{ limits.minPolarity }}〜{{ limits.maxPolarity }}）。</p>
+      <ul v-if="errors.length" class="form-errors"><li v-for="e in errors" :key="e">{{ e }}</li></ul>
+      <ul v-if="warnings.length" class="form-warnings"><li v-for="w in warnings" :key="w">{{ w }}</li></ul>
+      <p v-if="message" class="muted">{{ message }}</p>
+
+      <table v-if="dict.entries.length" class="user-dict-table">
+        <tr><th>語</th><th>極性</th><th>カテゴリ</th><th></th></tr>
+        <tr v-for="e in dict.entries" :key="e.word">
+          <td>{{ e.word }}</td>
+          <td :class="e.polarity > 0 ? 'pos-text' : 'neg-text'">{{ e.polarity > 0 ? "+" : "" }}{{ e.polarity }}</td>
+          <td>{{ e.category }}</td>
+          <td><button type="button" class="link" @click="remove(e.word)" :aria-label="e.word + ' を削除'">削除</button></td>
+        </tr>
+      </table>
+
+      <div class="user-dict-io">
+        <button type="button" class="small" @click="exportJson" :disabled="!dict.entries.length">書き出し（JSON）</button>
+        <label class="small file-label">
+          読み込み（JSON）
+          <input type="file" accept="application/json,.json" @change="importJson">
+        </label>
+      </div>
+    </details>
+  `,
+  data() {
+    return { dict: userDict, limits: LIMITS, word: "", polarity: 0.8, category: USER_CATEGORY, errors: [], warnings: [], message: "", open: false };
+  },
+  methods: {
+    add() {
+      const entry = { word: this.word.trim(), polarity: this.polarity, category: this.category };
+      this.errors = validateEntry(entry, this.dict.categories);
+      this.warnings = this.errors.length ? [] : warningsFor(entry);
+      this.message = "";
+      if (this.errors.length) return;
+      try {
+        const saved = setUserEntries(upsertEntry(this.dict.entries, entry));
+        this.message = saved ? `「${entry.word}」を追加しました` : `「${entry.word}」を追加しました（このブラウザには保存できないため、ページを閉じると消えます）`;
+        this.word = "";
+      } catch (err) {
+        this.errors = [err.message];
+        this.message = "";
+      }
+    },
+    remove(word) {
+      setUserEntries(removeEntry(this.dict.entries, word));
+      this.errors = [];
+      this.message = `「${word}」を削除しました`;
+    },
+    exportJson() {
+      const url = URL.createObjectURL(new Blob([serialize(this.dict.entries)], { type: "application/json" }));
+      const a = Object.assign(document.createElement("a"), { href: url, download: "user-dictionary.json" });
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    },
+    async importJson(event) {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (!file) return;
+      try {
+        const { entries, rejected } = parseImport(await file.text(), this.dict.categories);
+        const merged = entries.reduce((acc, e) => {
+          try { return upsertEntry(acc, e); } catch { return acc; }
+        }, this.dict.entries);
+        setUserEntries(merged);
+        this.errors = [];
+        this.message = `${entries.length} 語を読み込みました` + (rejected ? `（${rejected} 件は不正なため除外）` : "");
+      } catch (err) {
+        this.errors = [err.message];
+        this.message = "";
+      }
+    },
+    openPanel() {
+      this.open = true;
+    }
+  }
+};
+
 const EXAMPLES = [
   "麺がもちもちで美味しく、店員さんも親切だった",
   "届いて一週間で電源が入らなくなった",
@@ -107,7 +219,11 @@ const AnalysisPanel = {
 
       <template v-if="r">
         <div :class="['result', label.cssClass]">{{ label.text }}</div>
-        <p class="score-line">
+        <p v-if="r.abstained" class="score-line">
+          辞書に感情を表す語が見つかりませんでした。<strong>中立という判定ではありません。</strong><br>
+          <button type="button" class="link" @click="openUserDictionary">ユーザー辞書</button>に語を追加すると、判定できるようになります。
+        </p>
+        <p v-else class="score-line">
           判定スコア {{ r.normalizedScore.toFixed(2) }}（±{{ r.threshold }} 以上でポジティブ／ネガティブ）
         </p>
 
@@ -129,11 +245,11 @@ const AnalysisPanel = {
           </div>
         </section>
 
-        <section class="section">
+        <section v-if="r.matchedWords.length" class="section">
           <h3>判定の根拠</h3>
-          <p v-if="!r.matchedWords.length" class="muted">辞書の語が見つからなかったため、中立と判定しました。</p>
-          <ul v-else>
+          <ul>
             <li v-for="m in r.matchedWords" :key="m.word">
+              <span v-if="userWords.has(m.word)" class="badge">ユーザー</span>
               <strong>{{ m.word }}</strong>（{{ m.category }} /
               <template v-if="m.negatedOnly">否定 → {{ m.negatedPolarity }}</template>
               <template v-else>
@@ -161,14 +277,24 @@ const AnalysisPanel = {
           <pre>{{ JSON.stringify(r, null, 2) }}</pre>
         </section>
       </template>
+
+      <user-dictionary-panel ref="userDictionary"></user-dictionary-panel>
     </div>
   `,
+  components: { UserDictionaryPanel },
   data() {
-    return { text: "", r: null, config: null, examples: EXAMPLES, skipReasons: SKIP_REASONS, morph, morphLabels: MORPH_LABELS };
+    return { text: "", r: null, config: null, examples: EXAMPLES, skipReasons: SKIP_REASONS, morph, morphLabels: MORPH_LABELS, userDict };
   },
   computed: {
     label() {
-      return displayLabel(this.r?.result);
+      return displayResult(this.r);
+    },
+    // 組み込み辞書 ＋ ユーザー辞書
+    effectiveConfig() {
+      return this.config && mergeUserDictionary(this.config, this.userDict.entries);
+    },
+    userWords() {
+      return new Set(this.userDict.entries.map((e) => e.word));
     },
     breakdown() {
       return splitCategoryScores(this.r?.categoryScore, this.config?.groups);
@@ -181,6 +307,10 @@ const AnalysisPanel = {
     // 形態素解析の状態が変わったら（読み込み完了・オフにした など）、表示中の結果を分析し直す
     "morph.status"() {
       if (this.r) this.analyze();
+    },
+    // ユーザー辞書を変えたら、表示中の結果を分析し直す
+    "userDict.entries"() {
+      if (this.r) this.analyze();
     }
   },
   methods: {
@@ -188,8 +318,12 @@ const AnalysisPanel = {
     scoreClass,
     analyze() {
       if (!this.config) return;
-      const r = analyzeText(this.text, this.config, { tokenizer: activeTokenizer() });
+      const r = analyzeText(this.text, this.effectiveConfig, { tokenizer: activeTokenizer() });
       this.r = { ...r, skippedWords: r.skippedWords ?? [] };
+    },
+    openUserDictionary() {
+      this.$refs.userDictionary.openPanel();
+      this.$nextTick(() => this.$refs.userDictionary.$el.scrollIntoView({ behavior: "smooth", block: "start" }));
     },
     toggleMorph(on) {
       on ? enableMorphology() : disableMorphology();
@@ -236,6 +370,7 @@ const Dev = {
       <section class="section">
         <h3>テスト評価</h3>
         <p class="muted">固定ブラインドベンチマーク（b1）はここには表示しません（npm run bench で集計のみ）。
+          テスト評価は組み込み辞書だけで行います（ユーザー辞書は使いません）。
           形態素解析: {{ morph.status === "ready" ? "有効" : "無効（文字列モード）" }}</p>
         <button v-for="(s, key) in testsets" :key="key" class="primary" @click="runEvaluation(key)">
           テスト評価（{{ s.name }}）
@@ -246,6 +381,7 @@ const Dev = {
         <p>📊 評価結果: {{ testsets[evaluationSet].name }}（{{ evaluation.total }}件）</p>
         <p class="headline">Macro-F1: {{ pct(evaluation.macroF1) }}</p>
         <p>Accuracy: {{ pct(evaluation.accuracy) }}</p>
+        <p>判定できた割合（coverage）: {{ pct(evaluation.coverage) }} ／ 判定できた文での正解率: {{ pct(evaluation.accuracyOnDecided) }}</p>
 
         <table>
           <tr><th></th><th>Precision</th><th>Recall</th><th>F1</th><th>件数</th></tr>

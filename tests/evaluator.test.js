@@ -60,3 +60,10 @@ test("不明なラベルは集計から除外して報告する", () => {
   assert.equal(e.total, 0);
   assert.equal(e.skipped.length, 1);
 });
+
+test("coverage と判定できた文での正解率", () => {
+  const e = evaluate(testset, config);
+  // 「x」の2文は辞書の語がなく判定できない → 7文中5文を判定、その5文の正解は3文
+  assert.equal(e.coverage, 5 / 7);
+  assert.equal(e.accuracyOnDecided, 3 / 5);
+});

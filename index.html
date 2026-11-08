@@ -173,6 +173,90 @@
     .morph-status.ready { color: #2e7d32; }
     .morph-status.failed { color: #c62828; }
 
+    .badge {
+      display: inline-block;
+      margin-right: 4px;
+      padding: 0 6px;
+      border-radius: 4px;
+      background: #e3f2fd;
+      color: #1565c0;
+      font-size: 11px;
+    }
+
+    button.link {
+      background: none;
+      border: none;
+      padding: 0;
+      color: #2e7d32;
+      text-decoration: underline;
+      cursor: pointer;
+      font-size: inherit;
+    }
+
+    button.small, .file-label {
+      padding: 4px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #fafafa;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    button.small:disabled { opacity: 0.5; cursor: default; }
+
+    .user-dict {
+      margin-top: 20px;
+      padding: 10px 12px;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      text-align: left;
+    }
+
+    .user-dict summary {
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .user-dict-form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .user-dict-form input:first-child { flex: 1 1 140px; min-width: 0; }
+    .user-dict-form input[type=number] { width: 70px; }
+    .user-dict-form input, .user-dict-form select { padding: 4px 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; }
+
+    .form-errors li { color: #c62828; }
+    .form-warnings li { color: #8d6e00; }
+
+    .user-dict-table {
+      width: 100%;
+      margin: 8px 0;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .user-dict-table th, .user-dict-table td {
+      border-bottom: 1px solid #eee;
+      padding: 4px 6px;
+      text-align: left;
+    }
+
+    .pos-text { color: #2e7d32; }
+    .neg-text { color: #c62828; }
+
+    .user-dict-io {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .file-label input { display: none; }
+
     .dev-only pre {
       font-size: 11px;
       background: #f5f5f5;
@@ -190,6 +274,7 @@
       font-weight: bold;
     }
 
+    .abstain  { background: #fff8e1; color: #8d6e00; border: 1px dashed #e0c25a; }
     .positive { background: #e8f5e9; color: #2e7d32; }
     .negative { background: #ffebee; color: #c62828; }
     .neutral  { background: #eceff1; color: #37474f; }
