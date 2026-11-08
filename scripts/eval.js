@@ -4,9 +4,11 @@
 //   npm run eval -- --check               ベースラインより Macro-F1 が下がったら失敗（CI 用）
 //   npm run eval -- --update-baseline     現在の Macro-F1 をベースラインとして保存
 //   npm run eval -- --only dev            開発用セットだけ評価（辞書の調整中はこれを使い、ホールドアウトを見ない）
+//   npm run eval -- --no-morphology       形態素解析を使わずに評価（文字列だけのモード。比較用）
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { evaluate, LABELS } from "../engine/evaluator.js";
+import { loadTokenizer } from "./tokenizer.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const load = (p) => JSON.parse(readFileSync(root + p, "utf8"));
@@ -36,10 +38,12 @@ if (only && updateBaseline) {
 
 const pct = (x) => (x * 100).toFixed(1).padStart(5) + "%";
 const current = {};
+const tokenizer = args.includes("--no-morphology") ? null : await loadTokenizer();
+console.log(`形態素解析: ${tokenizer ? "有効" : "無効（文字列モード）"}`);
 
 for (const [key, { file, data }] of Object.entries(sets)) {
   if (only && key !== only) continue;
-  const e = evaluate(data, config);
+  const e = evaluate(data, config, { tokenizer });
   current[key] = { macroF1: e.macroF1, accuracy: e.accuracy, total: e.total };
 
   console.log(`\n== ${key} (${file})  n=${e.total}`);
