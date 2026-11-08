@@ -1,6 +1,10 @@
 {
   "package": "kuromoji",
   "version": "0.1.2",
+  "script": {
+    "src": "https://unpkg.com/kuromoji@0.1.2/build/kuromoji.js",
+    "integrity": "sha384-LCHxvFGxgpk9Bl+0+OaV6Rf24HQamJPrNHIo6VGkXkVgGWRvl68eqUwCW5PWqfwh"
+  },
   "base": "https://unpkg.com/kuromoji@0.1.2/dict/",
   "files": {
     "base.dat.gz": "sha384-iQWUbVYqm3a+cFcbQbHp0Wjg41TA2nPvjgNLJelUpNHTxegbQaqBMThZ8/ZkxlAw",

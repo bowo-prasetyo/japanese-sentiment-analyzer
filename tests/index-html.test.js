@@ -21,3 +21,12 @@ test("CDN スクリプトには integrity と crossorigin がある", () => {
     assert.equal(crossorigin, "anonymous", `${src} に crossorigin="anonymous" がありません`);
   }
 });
+
+test("必要時に読み込む kuromoji 本体もバージョン固定 + integrity を持つ", async () => {
+  const { readFileSync } = await import("node:fs");
+  const dict = JSON.parse(readFileSync(new URL("../data/kuromoji-dict.json", import.meta.url), "utf8"));
+  assert.match(dict.script.src, /@\d+\.\d+\.\d+\//);
+  assert.match(dict.script.integrity, /^sha(256|384|512)-[A-Za-z0-9+/]+=*$/);
+  assert.match(dict.base, /@\d+\.\d+\.\d+\//);
+  assert.equal(Object.keys(dict.files).length, 12);
+});

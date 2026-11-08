@@ -6,10 +6,12 @@ import { externalScripts, readIndexHtml } from "./cdn-scripts.js";
 
 let failed = false;
 
-// index.html の <script> に加え、kuromoji の辞書ファイル（XHR で読むため SRI を付けられない）も検証する
+// index.html の <script> に加え、必要になったときに読み込む kuromoji 本体と辞書ファイルも検証する
+// （辞書は XHR で読むため、ブラウザでは SRI を付けられない）
 const dict = JSON.parse(readFileSync(new URL("../data/kuromoji-dict.json", import.meta.url), "utf8"));
 const targets = [
   ...externalScripts(readIndexHtml()),
+  dict.script,
   ...Object.entries(dict.files).map(([file, integrity]) => ({ src: dict.base + file, integrity }))
 ];
 
