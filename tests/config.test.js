@@ -51,3 +51,39 @@ test("followedBy の語は辞書に登録されている", () => {
     assert.ok(allWords.has(word), `followedBy の「${word}」が words にありません`);
   }
 });
+
+// JSON.parse は重複キーを黙って上書きするため、生のテキストから数える
+const raw = readFileSync(new URL("../data/config.json", import.meta.url), "utf8");
+function rawKeys(section) {
+  const start = raw.indexOf(`"${section}": {`);
+  const end = raw.indexOf("\n  }", start);
+  return [...raw.slice(start, end).matchAll(/^    "([^"]+)":/gm)].map((m) => m[1]);
+}
+
+test("wordPolarity / negatedPolarity / wordExclusions にキーの重複がない", () => {
+  for (const section of ["wordPolarity", "negatedPolarity", "wordExclusions"]) {
+    const keys = rawKeys(section);
+    const dups = keys.filter((k, i) => keys.indexOf(k) !== i);
+    assert.deepEqual(dups, [], `${section} の重複キー: ${dups.join(", ")}`);
+  }
+});
+
+test("同じカテゴリ内に同じ語がない", () => {
+  for (const [category, words] of Object.entries(config.words)) {
+    const dups = words.filter((w, i) => words.indexOf(w) !== i);
+    assert.deepEqual(dups, [], `${category} の重複: ${dups.join(", ")}`);
+  }
+});
+
+test("複数カテゴリへの登録は既知のもの（v0.3 以前から）だけ", () => {
+  const legacy = new Set(["胸が締め付けられ", "やりきれな", "心細", "悶々と", "虚無"]);
+  const seen = new Map();
+  const extra = [];
+  for (const [category, words] of Object.entries(config.words)) {
+    for (const w of words) {
+      if (seen.has(w) && seen.get(w) !== category && !legacy.has(w)) extra.push(`${w}（${seen.get(w)} / ${category}）`);
+      seen.set(w, category);
+    }
+  }
+  assert.deepEqual(extra, []);
+});
