@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>3層感情分析エンジン</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>日本語レビュー感情分析</title>
+  <meta name="description" content="日本語のレビュー文をポジティブ／ネガティブ／中立に判定し、根拠の語と観点別の評価を示す、ブラウザだけで動くルールベースの感情分析。">
 
   <!-- Vue（バージョン固定 + SRI。更新手順は README「依存ライブラリの更新」参照） -->
   <script src="https://unpkg.com/vue@3.5.44/dist/vue.global.prod.js"
@@ -35,12 +37,27 @@
       padding: 24px;
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      width: 400px;
+      width: min(520px, calc(100vw - 32px));
+      box-sizing: border-box;
     }
 
-    h2 {
-      margin-top: 0;
+    h1 {
+      margin: 0;
+      font-size: 22px;
       text-align: center;
+    }
+
+    h3 {
+      margin: 0 0 6px;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .tagline {
+      margin: 4px 0 16px;
+      text-align: center;
+      color: #666;
+      font-size: 14px;
     }
 
     textarea {
@@ -52,7 +69,7 @@
       box-sizing: border-box;
     }
 
-    button {
+    button.primary {
       margin-top: 10px;
       width: 100%;
       padding: 10px;
@@ -64,8 +81,87 @@
       cursor: pointer;
     }
 
-    button:hover {
+    button.primary:hover {
       background: #45a049;
+    }
+
+    .examples {
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .examples-label {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .chip {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid #ddd;
+      background: #fafafa;
+      color: #333;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .chip:hover {
+      background: #f0f0f0;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .score-chip {
+      cursor: default;
+      font-weight: bold;
+      border: none;
+    }
+
+    .section {
+      margin-top: 16px;
+      text-align: left;
+    }
+
+    .score-line {
+      margin: 6px 0 0;
+      text-align: center;
+      font-size: 13px;
+      color: #666;
+    }
+
+    .muted {
+      font-size: 13px;
+      color: #888;
+    }
+
+    .footer {
+      margin-top: 24px;
+      padding-top: 12px;
+      border-top: 1px solid #eee;
+      text-align: center;
+      font-size: 12px;
+      color: #888;
+    }
+
+    .footer a, .tagline a {
+      color: #2e7d32;
+    }
+
+    .dev-only pre {
+      font-size: 11px;
+      background: #f5f5f5;
+      padding: 8px;
+      border-radius: 6px;
+      overflow-x: auto;
+      max-height: 240px;
     }
 
     .result {

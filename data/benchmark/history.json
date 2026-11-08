@@ -34,5 +34,14 @@
     "noHit": 68,
     "total": 150,
     "date": "2026-11-08"
+  },
+  {
+    "benchmark": "b1",
+    "version": "0.11.0",
+    "macroF1": 0.776794,
+    "accuracy": 0.773333,
+    "noHit": 68,
+    "total": 150,
+    "date": "2026-11-08"
   }
 ]
