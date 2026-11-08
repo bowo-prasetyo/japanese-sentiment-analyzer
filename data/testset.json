@@ -487,5 +487,19 @@
   { "text": "映画館は駅ビルの五階にある", "label": "neutral" },
   { "text": "新しい机を組み立てるのに一時間ほどかかった", "label": "neutral" },
   { "text": "期限内に使わない場合、ポイントは失効します", "label": "neutral" },
-  { "text": "来週から新しい担当者に代わる", "label": "neutral" }
+  { "text": "来週から新しい担当者に代わる", "label": "neutral" },
+
+  { "text": "このお店は接客がよくて、また行きたい", "label": "positive" },
+  { "text": "肌触りがほどよく柔らかい", "label": "positive" },
+
+  { "text": "このプリンターは紙を入れても反応しない場合が多い", "label": "negative" },
+  { "text": "朝になると充電できていない場合がある", "label": "negative" },
+  { "text": "よく固まるので、スマホを買い替えたい", "label": "negative" },
+
+  { "text": "ご利用の環境によっては動かない場合があります", "label": "neutral" },
+  { "text": "混雑時は電話がつながらない場合がございます", "label": "neutral" },
+  { "text": "よく晴れた日に公園を散歩した", "label": "neutral" },
+  { "text": "母はよく、昔の話をする", "label": "neutral" },
+  { "text": "よく使う機能だけをまとめた", "label": "neutral" },
+  { "text": "壊れていた場合、すぐにご連絡ください", "label": "neutral" }
 ]

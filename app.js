@@ -32,10 +32,10 @@ const Home = {
 		  </ul>
 		</div>
 		<div v-if="skippedWords.length" class="stats">
-		  <p>除外した単語（書き手の評価ではないため）:</p>
+		  <p>除外した単語（書き手の評価ではない・別の意味のため）:</p>
 		  <ul>
 			<li v-for="s in skippedWords" :key="s.word">
-			  {{ s.word }}（{{ s.category }} / {{ s.reason === "condition" ? "条件" : "説明" }}「{{ s.marker }}」）
+			  {{ s.word }}（{{ s.category }} / {{ { condition: "条件", description: "説明", usage: "用法" }[s.reason] }}「{{ s.marker }}」）
 			</li>
 		  </ul>
 		</div>
