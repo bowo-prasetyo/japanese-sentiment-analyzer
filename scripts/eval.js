@@ -1,24 +1,35 @@
-// 使い方: npm run eval            （開発用セット + ホールドアウト）
-//         npm run eval -- --errors （誤判定も表示）
-import { readFileSync } from "node:fs";
+// 使い方:
+//   npm run eval                          開発用セット + ホールドアウトの指標を表示
+//   npm run eval -- --errors              誤判定も表示
+//   npm run eval -- --check               ベースラインより Macro-F1 が下がったら失敗（CI 用）
+//   npm run eval -- --update-baseline     現在の Macro-F1 をベースラインとして保存
+import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { evaluate, LABELS } from "../engine/evaluator.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const load = (p) => JSON.parse(readFileSync(root + p, "utf8"));
+const BASELINE_PATH = "data/eval-baseline.json";
 
 const config = load("data/config.json");
 const sets = {
-  "dev (testset.json)": load("data/testset.json"),
-  "holdout (holdout.json)": load("data/holdout.json")
+  dev: { file: "testset.json", data: load("data/testset.json") },
+  holdout: { file: "holdout.json", data: load("data/holdout.json") }
 };
-const showErrors = process.argv.includes("--errors");
+
+const args = process.argv.slice(2);
+const showErrors = args.includes("--errors");
+const check = args.includes("--check");
+const updateBaseline = args.includes("--update-baseline");
+
 const pct = (x) => (x * 100).toFixed(1).padStart(5) + "%";
+const current = {};
 
-for (const [name, testset] of Object.entries(sets)) {
-  const e = evaluate(testset, config);
+for (const [key, { file, data }] of Object.entries(sets)) {
+  const e = evaluate(data, config);
+  current[key] = { macroF1: e.macroF1, accuracy: e.accuracy, total: e.total };
 
-  console.log(`\n== ${name}  n=${e.total}`);
+  console.log(`\n== ${key} (${file})  n=${e.total}`);
   console.log(`macro-F1 ${pct(e.macroF1)}   accuracy ${pct(e.accuracy)}   no-hit ${e.noHitCases.length}`);
 
   console.log("\n  class      precision  recall     F1   support");
@@ -40,5 +51,42 @@ for (const [name, testset] of Object.entries(sets)) {
       const words = r.matchedWords.map((m) => `${m.word}:${m.polarity.toFixed(2)}`).join(", ");
       console.log(`  ${r.label} → ${r.predicted}  ${r.text}  [${words}]`);
     }
+  }
+}
+
+if (updateBaseline) {
+  const rounded = Object.fromEntries(
+    Object.entries(current).map(([k, v]) => [k, { macroF1: +v.macroF1.toFixed(4), total: v.total }])
+  );
+  writeFileSync(root + BASELINE_PATH, JSON.stringify(rounded, null, 2) + "\n");
+  console.log(`\nベースラインを更新しました: ${BASELINE_PATH}`);
+}
+
+if (check) {
+  const baseline = load(BASELINE_PATH);
+  // ベースラインは小数4桁で保存しているため、丸め誤差分だけ許容する
+  const TOLERANCE = 0.00005;
+  let failed = false;
+
+  console.log("\n== baseline check (macro-F1)");
+  for (const [key, base] of Object.entries(baseline)) {
+    const now = current[key];
+    if (!now) {
+      console.log(`  ✗ ${key}: 評価セットが見つかりません`);
+      failed = true;
+      continue;
+    }
+    const ok = now.macroF1 >= base.macroF1 - TOLERANCE;
+    const mark = ok ? "✓" : "✗";
+    console.log(`  ${mark} ${key}: ${pct(now.macroF1)}（ベースライン ${pct(base.macroF1)}）`);
+    if (!ok) failed = true;
+    else if (now.macroF1 > base.macroF1 + TOLERANCE) {
+      console.log(`    ↑ 改善しています。npm run eval -- --update-baseline でベースラインを更新してください`);
+    }
+  }
+
+  if (failed) {
+    console.error("\nMacro-F1 がベースラインを下回りました。");
+    process.exit(1);
   }
 }

@@ -18,7 +18,7 @@ https://bowo-prasetyo.github.io/japanese-sentiment-analyzer/#/
 ## ✨ 特徴
 
 * 🟢 **サーバ不要**（100%フロントエンド）
-* 🟢 **Vue 3 + Vue Router** によるモダンUI
+* 🟢 **Vue 3 + Vue Router** によるモダンUI（バージョン固定 + SRI）
 * 🟢 **JSONベース辞書**でロジックとデータを分離
 * 🟢 **3層モデル（単語 → 感情 → 極性）**
 * 🟢 **ヒット単語の可視化（Explainable AI）**
@@ -93,9 +93,14 @@ project/
  ├── data/
  │    ├── config.json    # 感情辞書
  │    ├── testset.json   # 開発用テストセット
- │    └── holdout.json   # ホールドアウト（辞書調整に使わない）
+ │    ├── holdout.json   # ホールドアウト（辞書調整に使わない）
+ │    └── eval-baseline.json # CI で守る Macro-F1 の下限
  ├── scripts/
- │    └── eval.js        # コマンドラインでの評価
+ │    ├── eval.js        # コマンドラインでの評価
+ │    ├── check-cdn.js   # CDN ファイルの SRI 検証（CI 用）
+ │    └── cdn-scripts.js # index.html の外部スクリプト抽出
+ ├── .github/workflows/
+ │    └── ci.yml         # CI（テスト・精度チェック・CDN 検証）
  ├── tests/              # 回帰テスト（node:test）
  ├── pseudo-api/         # 擬似API
  │    ├── index.html
@@ -178,8 +183,48 @@ positive / negative / neutral の **3クラス分類**として評価します�
 ```bash
 npm run eval              # 両セットの指標
 npm run eval -- --errors  # 誤判定の一覧も表示
+npm run eval -- --check   # ベースラインより Macro-F1 が下がったら失敗
 npm test                  # 回帰テスト
 ```
+
+---
+
+## 🔁 CI（GitHub Actions）
+
+Pull Request と `main` への push で次を実行します（`.github/workflows/ci.yml`）。
+
+| ステップ | 内容 |
+| --- | --- |
+| `npm test` | 回帰テスト（否定処理・評価指標・表示ラベル・CDN の固定） |
+| `npm run eval -- --check` | 開発用・ホールドアウトの Macro-F1 が `data/eval-baseline.json` を下回ったら失敗 |
+| `npm run check:cdn` | `index.html` の CDN ファイルを実際に取得し、SRI ハッシュと一致するか確認 |
+
+### 辞書を改善したとき
+
+精度が上がると CI に「改善しています」と表示されます。ベースラインを更新してコミットしてください。
+
+```bash
+npm run eval -- --update-baseline
+```
+
+下がった場合は CI が失敗します。意図的に下げる場合（テストセットの修正など）も、
+理由を PR に書いたうえで同じコマンドでベースラインを更新します。
+
+---
+
+## 📦 依存ライブラリの更新
+
+Vue と Vue Router は CDN（unpkg）から**正確なバージョン**で読み込み、
+`integrity`（SRI）で改ざんを検知します。更新するときは、URL のバージョンと
+`integrity` の両方を書き換えます。
+
+```bash
+npm pack vue@<version> && tar xzf vue-<version>.tgz
+echo "sha384-$(openssl dgst -sha384 -binary package/dist/vue.global.prod.js | openssl base64 -A)"
+```
+
+`integrity` が間違っているとブラウザはスクリプトを読み込まず、ページが動きません。
+CI の `check:cdn` が PR の段階でこれを検出します。
 
 ---
 
