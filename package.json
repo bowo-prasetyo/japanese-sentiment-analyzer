@@ -1,6 +1,6 @@
 {
   "name": "japanese-sentiment-analyzer",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "private": true,
   "description": "Browser-only, rule-based Japanese sentiment analyzer",
   "type": "module",
@@ -10,5 +10,8 @@
     "check:cdn": "node scripts/check-cdn.js",
     "bench": "node scripts/benchmark.js"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "kuromoji": "0.1.2"
+  }
 }

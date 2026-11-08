@@ -17,7 +17,7 @@ function safeDiv(a, b) {
   return b === 0 ? 0 : a / b;
 }
 
-export function evaluate(testset, config) {
+export function evaluate(testset, config, options = {}) {
   // confusion[正解][予測] = 件数
   const confusion = emptyMatrix();
 
@@ -32,7 +32,7 @@ export function evaluate(testset, config) {
       continue;
     }
 
-    const r = analyzeText(item.text, config);
+    const r = analyzeText(item.text, config, options);
     const predicted = r.result;
     const correct = predicted === item.label;
 

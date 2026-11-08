@@ -46,14 +46,16 @@ function isInsideTakenSpan(index, len, taken) {
 
 // 除外複合語の内側にも、採用済みの一致（より長い語）の内側にもない、
 // 最初の出現位置を返す（なければ -1）
-export function findMatch(text, word, exclusions = [], taken = []) {
+export function findMatch(text, word, exclusions = [], taken = [], tokenStarts = null) {
   let from = 0;
   while (true) {
     const index = text.indexOf(word, from);
     if (index === -1) return -1;
     if (
       !isInsideExcludedCompound(text, index, word.length, exclusions) &&
-      !isInsideTakenSpan(index, word.length, taken)
+      !isInsideTakenSpan(index, word.length, taken) &&
+      // 形態素解析が有効なら、短い語は単語（形態素）の先頭から始まる必要がある（「精神」の中の「神」は数えない）
+      (!tokenStarts || tokenStarts.has(index))
     ) {
       return index;
     }
@@ -64,7 +66,7 @@ export function findMatch(text, word, exclusions = [], taken = []) {
 // 最長一致: 長い語から順に探し、すでに採用した語の内側にある短い語は数えない
 // （例: 「期待外れ」がヒットしたら、その中の「期待」は数えない）。
 // 戻り値は文中の出現順。
-export function findMatches(text, config) {
+export function findMatches(text, config, tokenStarts = null, boundaryMaxLength = Infinity) {
   const candidates = [];
   for (const category in config.words) {
     for (const word of config.words[category]) {
@@ -78,7 +80,9 @@ export function findMatches(text, config) {
   const matches = [];
   for (const { word, category } of candidates) {
     const exclusions = config.wordExclusions?.[word] || [];
-    const index = findMatch(text, word, exclusions, taken);
+    // 境界チェックは短い語だけ（長い語は「気持ちいい」のような複合語の内側でも意味が保たれる）
+    const starts = word.length <= boundaryMaxLength ? tokenStarts : null;
+    const index = findMatch(text, word, exclusions, taken, starts);
     if (index === -1) continue;
     taken.push({ start: index, end: index + word.length });
     matches.push({ word, category, index });
@@ -100,7 +104,28 @@ export function cutAtBoundary(after, boundaries, bridges = []) {
   return after;
 }
 
-export function analyzeText(text, config) {
+// ===== 形態素解析（任意） =====
+// options.tokenizer に kuromoji の tokenizer（tokenize(text) を持つもの）を渡すと、
+//   1. 語は形態素の先頭からしか一致しない（部分文字列の誤ヒットを防ぐ）
+//   2. 否定は「否定の形態素」だけを数える（「少ない」の「ない」、「必ず」の「ず」は数えない）
+// 渡さない場合は、従来どおり文字列だけで判定する。
+
+// 否定の形態素: 助動詞「ない・ぬ（ず）・ん」と、形容詞「ない」（「〜ではない」「誠意がない」）
+export function isNegationToken(t) {
+  return (t.pos === "助動詞" && ["ない", "ぬ", "ん"].includes(t.basic_form)) ||
+         (t.pos === "形容詞" && t.basic_form === "ない");
+}
+
+export function morphology(text, tokenizer) {
+  if (!tokenizer) return null;
+  const tokens = tokenizer.tokenize(text);
+  return {
+    tokenStarts: new Set(tokens.map((t) => t.word_position - 1)),
+    negationStarts: tokens.filter(isNegationToken).map((t) => t.word_position - 1)
+  };
+}
+
+export function analyzeText(text, config, options = {}) {
 
   for (let s of config.splitters) {
     if (text.includes(s)) {
@@ -108,7 +133,7 @@ export function analyzeText(text, config) {
 
       if (parts.length >= 2) {
         const after = parts.slice(1).join(s); // 複数対策
-        const afterResult = analyzeText(after, config);
+        const afterResult = analyzeText(after, config, options);
 
         // 👉 後半を優先（ここがポイント）
         return {
@@ -134,7 +159,8 @@ export function analyzeText(text, config) {
   const markerBoundaries = config.hypotheticalBoundaries || DEFAULT_HYPOTHETICAL_BOUNDARIES;
   const skippedWords = [];
 
-  const found = findMatches(text, config);
+  const morph = morphology(text, options.tokenizer);
+  const found = findMatches(text, config, morph?.tokenStarts, config.boundaryCheckMaxLength ?? 2);
   const overlapsOther = (cur) =>
     found.some((o) => o !== cur && o.index < cur.index + cur.word.length && cur.index < o.index + o.word.length);
 
@@ -205,9 +231,12 @@ export function analyzeText(text, config) {
     const isException = config.negationExceptions?.some(e => after.includes(e));
 
     // ===== 否定チェック =====
-    const isNegated =
-      !isException &&
-      config.negations.some(n => after.includes(n));
+    // 形態素解析が有効なら、窓の中に否定の形態素があるかで判定する
+    const windowStart = index + word.length;
+    const hasNegation = morph
+      ? morph.negationStarts.some((p) => p >= windowStart && p < windowStart + after.length)
+      : config.negations.some((n) => after.includes(n));
+    const isNegated = !isException && hasNegation;
 
     if (isNegatedOnly) {
       if (!isNegated) continue; // 肯定形 → 数えない（スコアを薄めない）
@@ -282,6 +311,7 @@ export function analyzeText(text, config) {
     matchedWords,
     skippedWords,
     categoryScore,
-    debugLabel
+    debugLabel,
+    morphology: Boolean(morph)
   };
 }

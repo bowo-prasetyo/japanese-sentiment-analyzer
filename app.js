@@ -10,6 +10,33 @@ function loadConfig() {
   return configPromise;
 }
 
+// ===== 形態素解析（kuromoji）: 辞書を遅延読み込みし、読み込めなければ文字列モードで動く =====
+const morph = Vue.reactive({ status: "loading", tokenizer: null });
+
+function loadTokenizer() {
+  fetch("./data/kuromoji-dict.json")
+    .then((res) => res.json())
+    .then((manifest) => new Promise((resolve, reject) => {
+      if (typeof kuromoji === "undefined") return reject(new Error("kuromoji が読み込まれていません"));
+      kuromoji.builder({ dicPath: manifest.base }).build((err, tokenizer) => (err ? reject(err) : resolve(tokenizer)));
+    }))
+    .then((tokenizer) => {
+      morph.tokenizer = Vue.markRaw(tokenizer);
+      morph.status = "ready";
+    })
+    .catch((err) => {
+      console.warn("形態素解析を使えません（文字列モードで動作します）:", err);
+      morph.status = "failed";
+    });
+}
+loadTokenizer();
+
+const MORPH_LABELS = {
+  loading: "形態素解析: 辞書を読み込み中（約18MB）… その間は文字列モードで分析します",
+  ready: "形態素解析: 有効",
+  failed: "形態素解析: 使えません（文字列モードで分析しています）"
+};
+
 const EXAMPLES = [
   "麺がもちもちで美味しく、店員さんも親切だった",
   "届いて一週間で電源が入らなくなった",
@@ -32,6 +59,7 @@ const AnalysisPanel = {
       </div>
 
       <button class="primary" @click="analyze">分析</button>
+      <p :class="['morph-status', morph.status]">{{ morphLabels[morph.status] }}</p>
 
       <template v-if="r">
         <div :class="['result', label.cssClass]">{{ label.text }}</div>
@@ -85,14 +113,14 @@ const AnalysisPanel = {
 
         <section v-if="dev" class="section dev-only">
           <h3>デバッグ</h3>
-          <p>debug: {{ r.debugLabel }} / 合計 {{ r.score.toFixed(2) }} ÷ √ヒット数 {{ r.hits }}</p>
+          <p>debug: {{ r.debugLabel }} / 形態素解析: {{ r.morphology ? "有効" : "無効" }} / 合計 {{ r.score.toFixed(2) }} ÷ √ヒット数 {{ r.hits }}</p>
           <pre>{{ JSON.stringify(r, null, 2) }}</pre>
         </section>
       </template>
     </div>
   `,
   data() {
-    return { text: "", r: null, config: null, examples: EXAMPLES, skipReasons: SKIP_REASONS };
+    return { text: "", r: null, config: null, examples: EXAMPLES, skipReasons: SKIP_REASONS, morph, morphLabels: MORPH_LABELS };
   },
   computed: {
     label() {
@@ -105,12 +133,18 @@ const AnalysisPanel = {
   async mounted() {
     this.config = await loadConfig();
   },
+  watch: {
+    // 辞書の読み込みが終わったら、表示中の結果を形態素解析ありで分析し直す
+    "morph.status"(status) {
+      if (status === "ready" && this.r) this.analyze();
+    }
+  },
   methods: {
     formatScore,
     scoreClass,
     analyze() {
       if (!this.config) return;
-      const r = analyzeText(this.text, this.config);
+      const r = analyzeText(this.text, this.config, { tokenizer: morph.tokenizer });
       this.r = { ...r, skippedWords: r.skippedWords ?? [] };
     },
     tryExample(ex) {
@@ -154,7 +188,8 @@ const Dev = {
 
       <section class="section">
         <h3>テスト評価</h3>
-        <p class="muted">固定ブラインドベンチマーク（b1）はここには表示しません（npm run bench で集計のみ）。</p>
+        <p class="muted">固定ブラインドベンチマーク（b1）はここには表示しません（npm run bench で集計のみ）。
+          形態素解析: {{ morph.status === "ready" ? "有効" : "無効（文字列モード）" }}</p>
         <button v-for="(s, key) in testsets" :key="key" class="primary" @click="runEvaluation(key)">
           テスト評価（{{ s.name }}）
         </button>
@@ -202,7 +237,7 @@ const Dev = {
     </div>
   `,
   data() {
-    return { evaluation: null, evaluationSet: "", testsets: TESTSETS, testsetData: {}, labels: LABELS };
+    return { evaluation: null, evaluationSet: "", testsets: TESTSETS, testsetData: {}, labels: LABELS, morph };
   },
   methods: {
     display: displayLabel,
@@ -216,7 +251,7 @@ const Dev = {
         this.testsetData[key] = await res.json();
       }
       this.evaluationSet = key;
-      this.evaluation = evaluate(this.testsetData[key], config);
+      this.evaluation = evaluate(this.testsetData[key], config, { tokenizer: morph.tokenizer });
     }
   }
 };

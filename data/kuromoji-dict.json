@@ -1,0 +1,19 @@
+{
+  "package": "kuromoji",
+  "version": "0.1.2",
+  "base": "https://unpkg.com/kuromoji@0.1.2/dict/",
+  "files": {
+    "base.dat.gz": "sha384-iQWUbVYqm3a+cFcbQbHp0Wjg41TA2nPvjgNLJelUpNHTxegbQaqBMThZ8/ZkxlAw",
+    "cc.dat.gz": "sha384-0ZYKVZ0QHMwkbwIuE9sVgFiUEp0GRUiyzPLsoz1J7oWq88IXDzE3MdhU34YlKg9f",
+    "check.dat.gz": "sha384-PH7jzzr3+KePo1oglu10nkGd+kZBtawwA6CJRrNpupDG/hiatBONwIXhgvoTvxwN",
+    "tid.dat.gz": "sha384-DoTkkv79z/mwiau7INLh13tlKVvIyATvSuYs+UeUyurLLduwCGG4JDRkyb8TWTms",
+    "tid_map.dat.gz": "sha384-iEAQVDIzRAYSMDQBI4N8BzA/xtste1tQHT6++mWsJvA77WulMPnxmHSeoR+7b+Dh",
+    "tid_pos.dat.gz": "sha384-lFC9zrhPxASJ0KtdwSEzntoy7iNwlMBoUVD7kxZhkuODtdPmSOD1/kLaILKJQRIh",
+    "unk.dat.gz": "sha384-8FlzDFS3StBhxjhwy6pGHjYGtvKU/SCfjjehRzMOX17w29Wio7+PTUYL3cRz8zak",
+    "unk_char.dat.gz": "sha384-N/IAI66234K94S8eE0YJDcAKhqMWVoCZxqdUJb9Sk3hWvtPfp2K8Mv52IAWE7Vur",
+    "unk_compat.dat.gz": "sha384-+mNS/soFYDkJOkTMoH9dxsk3FjnxGqu/Cy48t3DQaTwGTRC9Mo+eWpQoUlfRkzkD",
+    "unk_invoke.dat.gz": "sha384-ycxJ5nS7advfU7wEAsxuhWxcum9vlvPiyVMR2hKYjxJA4itRn8JeqloQ8ZbsXh4k",
+    "unk_map.dat.gz": "sha384-XjEMP/P6bf08WC/02keOzqP8G/8wSQaWI6HVTBVgyhhLvUf9r8P2j9tB1iIqIWJE",
+    "unk_pos.dat.gz": "sha384-lhs1OvNGOEKbBRw7JqTlNE9Hh62VaXq8VioQcUlKL3IIGEZw+N7xC+tCtKystxg6"
+  }
+}
