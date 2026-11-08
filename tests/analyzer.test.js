@@ -311,3 +311,54 @@ test("複合語と重なる副詞の「よく」は除外一覧にも出さな�
   assert.deepEqual(r.matchedWords.map((m) => m.word), ["ほどよ"]);
   assert.deepEqual(r.skippedWords, []);
 });
+
+// ===== 否定は最も近い語のもの =====
+
+test("否定は最も近い語にだけ効く（かゆみが治まらない）", () => {
+  const r = analyzeText("かゆみが全然治まらない", config);
+  const itch = r.matchedWords.find((m) => m.word === "かゆみ");
+  assert.equal(itch.negated, false);
+  assert.ok(itch.polarity < 0);
+  assert.equal(r.result, "negative");
+});
+
+test("間に別の辞書語がなければ、これまでどおり否定が効く", () => {
+  assert.equal(analyzeText("全然嬉しくない", config).matchedWords[0].negated, true);
+  assert.equal(analyzeText("最悪ではない", config).matchedWords[0].negated, true);
+});
+
+// ===== v0.9.0 語彙（観点ごとの代表例） =====
+
+const vocabCases = {
+  positive: [
+    "香ばしくて美味しい", "やみつきになる味", "箸が止まらない", "長持ちするので助かる", "高級感がある",
+    "扱いやすいサイズ", "重宝しています", "手放せない", "とても役立つ", "仕事がはかどる",
+    "気配りが素晴らしい", "親身になってくれた", "良心的な価格", "感心した", "納得の味",
+    "買ってよかった", "文句なしの出来", "完璧でした", "かわいいデザイン", "絶景だった"
+  ],
+  negative: [
+    "脂っこくて胃もたれした", "パサパサしている", "すぐに破れた", "画面が割れた", "色落ちがひどい",
+    "使いづらい", "すぐフリーズする", "動作が重い", "読み込みが遅い", "横柄な態度",
+    "たらい回しにされた", "割に合わない", "損した気分", "完全に失敗した", "買わなきゃよかった",
+    "台無しだった", "詐欺みたいな商品", "肌がかぶれた", "かゆみが出た", "部屋にカビがあった"
+  ],
+  neutral: [
+    "複雑な手順を説明する", "当たり外れがある商品だ", "割れ物の発送について", "ノイズキャンセリング機能付き",
+    "進捗を報告する", "カビ取り剤を買った", "失敗しない選び方", "夜遅い時間に届く",
+    "困っている人を助ける", "困ったときは窓口へ"
+  ]
+};
+
+for (const [label, texts] of Object.entries(vocabCases)) {
+  for (const text of texts) {
+    test(`v0.9.0 語彙: 「${text}」→ ${label}`, () => {
+      assert.equal(analyzeText(text, config).result, label);
+    });
+  }
+}
+
+test("v0.9.0 語彙の否定（役立たない・納得いかない・失敗しない）", () => {
+  assert.equal(analyzeText("全く役立たない", config).result, "negative");
+  assert.equal(analyzeText("どうしても納得いかない", config).result, "negative");
+  assert.equal(analyzeText("気遣いが足りない", config).result, "negative");
+});
