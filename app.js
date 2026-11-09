@@ -623,6 +623,7 @@ const Dev = {
         <p class="headline">Macro-F1: {{ pct(evaluation.macroF1) }}</p>
         <p>Accuracy: {{ pct(evaluation.accuracy) }}</p>
         <p>判定できた割合（coverage）: {{ pct(evaluation.coverage) }} ／ 判定できた文での正解率: {{ pct(evaluation.accuracyOnDecided) }}</p>
+        <p>ポジティブ・ネガティブの文で判定できた割合: {{ pct(evaluation.coverageOnSentiment) }}（中立の文は「判定できません」が正しいことも多いため、別に表示）</p>
 
         <table>
           <tr><th></th><th>Precision</th><th>Recall</th><th>F1</th><th>件数</th></tr>

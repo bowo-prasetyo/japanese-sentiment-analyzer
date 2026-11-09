@@ -67,3 +67,9 @@ test("coverage と判定できた文での正解率", () => {
   assert.equal(e.coverage, 5 / 7);
   assert.equal(e.accuracyOnDecided, 3 / 5);
 });
+
+test("ポジティブ・ネガティブの文で判定できた割合（中立の文は数えない）", () => {
+  const e = evaluate(testset, config);
+  // ポジティブ・ネガティブの5文のうち、「x」の1文だけ判定できない
+  assert.equal(e.coverageOnSentiment, 4 / 5);
+});

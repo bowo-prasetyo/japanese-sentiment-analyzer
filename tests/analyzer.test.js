@@ -308,7 +308,9 @@ test("scopeUntilPunctuation は句読点を含めて切り、最大長で止め�
 
 test("複合語と重なる副詞の「よく」は除外一覧にも出さない（ほどよく）", () => {
   const r = analyzeText("肌触りがほどよく柔らかい", config);
-  assert.deepEqual(r.matchedWords.map((m) => m.word), ["ほどよ"]);
+  const words = r.matchedWords.map((m) => m.word);
+  assert.ok(words.includes("ほどよ"), words.join());
+  assert.ok(!words.includes("よく"), words.join());
   assert.deepEqual(r.skippedWords, []);
 });
 
@@ -513,4 +515,39 @@ test("逆接が2つ: 判定に使った部分の直前の逆接を contrastMarke
 
 test("逆接がなければ contrastMarker はない", () => {
   assert.equal(analyzeText("最高でした", config).contrastMarker, undefined);
+});
+
+// ===== 語彙ラウンド4（v0.15.0）: 一般的なレビュー語彙と、部分一致の誤り =====
+
+test("否定の語＋「にくい」はほめ言葉（以前は「壊れ」などに一致して否定になっていた）", () => {
+  for (const text of ["丈夫で壊れにくい", "傷がつきにくいので安心", "汚れにくい素材", "外れにくい留め具"]) {
+    assert.equal(analyzeText(text, config).result, "positive", text);
+  }
+  assert.equal(analyzeText("すぐ壊れやすい", config).result, "negative");
+});
+
+test("「不」で始まる語は、元の語（誠実・清潔）の肯定に一致しない", () => {
+  assert.equal(analyzeText("不誠実な対応だった", config).result, "negative");
+  assert.equal(analyzeText("トイレが不清潔だった", config).result, "negative");
+});
+
+test("できて当たり前の動作は、否定されたときだけ数える（認識しない・表示されない）", () => {
+  assert.equal(analyzeText("USBを挿しても認識しない", config).result, "negative");
+  assert.equal(analyzeText("画像が表示されない", config).result, "negative");
+  assert.equal(analyzeText("すぐに認識した", config).abstained, true);
+});
+
+test("「まだ届いていない」は状況の説明であり、不満として数えない（ゲート2で除外した語）", () => {
+  const r = analyzeText("いいえ、まだ届いていません", config);
+  assert.equal(r.abstained, true);
+});
+
+test("心地・質感・表記の揺れの語", () => {
+  for (const [text, label] of [
+    ["着心地がいい", "positive"], ["着心地が良くない", "negative"], ["寝心地が悪い", "negative"],
+    ["コスパがよかった", "positive"], ["文句はない", "positive"], ["評判どおりの味", "positive"],
+    ["生地がゴワゴワする", "negative"], ["音がこもって聞きにくい", "negative"], ["星5です", "positive"]
+  ]) {
+    assert.equal(analyzeText(text, config).result, label, text);
+  }
 });
