@@ -139,12 +139,16 @@ export function analyzeText(text, config, options = {}) {
         // 前半で見つかった語は捨てずに「数えなかった語」（理由: 逆接）として返し、
         // 画面で「なぜ数えなかったか」を示せるようにする（判定・評価には影響しない）。
         const beforeResult = analyzeText(parts[0], config, options);
-        const contrastSkipped = beforeResult.matchedWords.map(({ word, category, polarity }) => ({
-          word, category, reason: "contrast", marker: s, polarity
+        const contrastSkipped = beforeResult.matchedWords.map(({ word, category, polarity, index }) => ({
+          word, category, reason: "contrast", marker: s, polarity, index
         }));
+        // 後半の語の位置（index）を、元の文の中の位置に直す（後半は「前半 + 逆接の語」の後ろから始まる）
+        const offset = parts[0].length + s.length;
+        const shift = (list) => list.map((w) => ({ ...w, index: w.index + offset }));
         return {
           ...afterResult,
-          skippedWords: [...beforeResult.skippedWords, ...contrastSkipped, ...afterResult.skippedWords],
+          matchedWords: shift(afterResult.matchedWords),
+          skippedWords: [...beforeResult.skippedWords, ...contrastSkipped, ...shift(afterResult.skippedWords)],
           // 判定に使った部分の直前の逆接（後半がさらに逆接で分かれたときは、その内側のもの）
           contrastMarker: afterResult.contrastMarker ?? s,
           debugLabel: "contrast_override"
@@ -198,7 +202,7 @@ export function analyzeText(text, config, options = {}) {
     if (followers && !followers.some((f) => afterFull.startsWith(f))) {
       // 「ほどよく」の「よく」のように別の語と重なる場合は、除外一覧にも出さない
       if (!overlapsOther(match)) {
-        skippedWords.push({ word, category, reason: "usage", marker: followers.join("・") });
+        skippedWords.push({ word, category, reason: "usage", marker: followers.join("・"), index });
       }
       continue;
     }
@@ -213,7 +217,7 @@ export function analyzeText(text, config, options = {}) {
     const markerScope = scopeUntilPunctuation(afterFull, markerBoundaries, hypotheticalWindow);
     const skipReason = findHypotheticalMarker(markerScope, config);
     if (skipReason) {
-      skippedWords.push({ word, category, ...skipReason });
+      skippedWords.push({ word, category, ...skipReason, index });
       continue;
     }
 
@@ -281,6 +285,8 @@ export function analyzeText(text, config, options = {}) {
       polarity,
       negated: isNegated,
       multiplier,
+      // 文中の位置（画面で語に印を付けるため）。逆接で分けたときも、元の文の中の位置
+      index,
       ...(isNegatedOnly && { negatedOnly: true, negatedPolarity: negatedOnlyPolarity })
     });
 

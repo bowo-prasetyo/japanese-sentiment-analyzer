@@ -8,6 +8,10 @@ import {
 } from "./ui/userDictionary.js";
 import { splitCategoryScores, formatScore, scoreClass } from "./ui/breakdown.js";
 import { isAnalyzeShortcut, shortcutLabel, needsScrollToResult } from "./ui/interaction.js";
+import { highlightSegments, meterPosition, meterLabel, METER_RANGE } from "./ui/visual.js";
+
+// 文中の語の印の種類 → 読み上げ・凡例の言葉
+const MARK_TEXT = { positive: "ポジティブ", negative: "ネガティブ", zero: "どちらでもない", skipped: "数えなかった語" };
 
 // Ctrl+Enter / ⌘+Enter の表示（userAgentData がなければ従来の platform）
 const SHORTCUT_LABEL = shortcutLabel(navigator.userAgentData?.platform || navigator.platform || "");
@@ -337,6 +341,30 @@ const AnalysisPanel = {
           <template v-if="r.contrastMarker"><br>「{{ r.contrastMarker }}」より後の内容を優先して判定しました。</template>
         </p>
 
+        <!-- 判定スコアのメーター（天秤の傾き）: 中央が 0、左右の色の帯が判定の範囲 -->
+        <div v-if="!r.abstained" class="meter" role="img" :aria-label="meterAria">
+          <div class="meter-track">
+            <span class="meter-zone negative" :style="{ left: '0%', width: meter.negativeEnd + '%' }"></span>
+            <span class="meter-zone neutral" :style="{ left: meter.negativeEnd + '%', width: (meter.positiveStart - meter.negativeEnd) + '%' }"></span>
+            <span class="meter-zone positive" :style="{ left: meter.positiveStart + '%', right: '0%' }"></span>
+            <span :class="['meter-marker', meter.zone, { clamped: meter.clamped }]" :style="{ left: meter.percent + '%' }"></span>
+          </div>
+          <div class="meter-labels" aria-hidden="true">
+            <span>ネガティブ</span><span>中立</span><span>ポジティブ</span>
+          </div>
+          <p v-if="meter.clamped" class="meter-note" aria-hidden="true">目盛り（±{{ meterRange }}）の外のため、端に表示しています</p>
+        </div>
+
+        <section v-if="hasMarks" class="section">
+          <h3>文中の語</h3>
+          <p class="highlighted"><template v-for="(seg, i) in segments" :key="i"><mark v-if="seg.kind" :class="['hl', seg.kind]" :title="seg.title">{{ seg.text }}<span class="visually-hidden">（{{ markText[seg.kind] }}）</span></mark><template v-else>{{ seg.text }}</template></template></p>
+          <p class="hl-legend" aria-hidden="true">
+            <mark class="hl positive">ポジティブ</mark>
+            <mark class="hl negative">ネガティブ</mark>
+            <mark class="hl skipped">数えなかった語</mark>
+          </p>
+        </section>
+
         <section v-if="breakdown.aspects.length" class="section">
           <h3>観点別（何が良く、何が悪かったか）</h3>
           <div class="chips">
@@ -394,7 +422,7 @@ const AnalysisPanel = {
   components: { UserDictionaryPanel },
   data() {
     // analyzedText: 表示中の結果の元になった文（入力欄が変わっても、結果はこの文のもの）
-    return { text: "", analyzedText: "", r: null, inputError: "", examples: EXAMPLES, morph, morphLabels: MORPH_LABELS, userDict, appState, shortcutLabel: SHORTCUT_LABEL };
+    return { text: "", analyzedText: "", r: null, inputError: "", examples: EXAMPLES, morph, morphLabels: MORPH_LABELS, userDict, appState, shortcutLabel: SHORTCUT_LABEL, markText: MARK_TEXT, meterRange: METER_RANGE };
   },
   computed: {
     config() {
@@ -405,6 +433,19 @@ const AnalysisPanel = {
     },
     abstain() {
       return abstainExplanation(this.r);
+    },
+    meter() {
+      return meterPosition(this.r?.normalizedScore, this.r?.threshold ?? 0.5);
+    },
+    meterAria() {
+      return this.r ? meterLabel(this.r.normalizedScore, this.r.threshold) + (this.meter.clamped ? `（目盛り ±${METER_RANGE} の外）` : "") : "";
+    },
+    // 分析した文（入力欄が変わっていても、結果の元の文）に、語の印を付けたもの
+    segments() {
+      return this.r ? highlightSegments(this.analyzedText, this.r) : [];
+    },
+    hasMarks() {
+      return this.segments.some((seg) => seg.kind);
     },
     // 読み上げる文: 判定と、判定スコア（判定できないときは、中立ではないこと）
     announcement() {
