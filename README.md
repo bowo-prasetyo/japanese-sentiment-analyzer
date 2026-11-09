@@ -249,6 +249,7 @@ GitHub Pagesを利用（公開版）：
 * 組み込み辞書と同じ語を登録すると、**ユーザーの指定が優先**されます（組み込みの特別ルールも外れます）
 * 否定・強調・条件の除外などのルールは、ユーザー辞書の語にも同じように効きます
 * 判定の根拠では「ユーザー」の印が付きます
+* 削除した直後は「元に戻す」で、元の位置に戻せます（次に追加・読み込み・削除するまで）
 * **このブラウザにだけ保存**されます（最大200語）。読み込みでは、追加・更新した語の数と、上限や不正のため取り込めなかった数を表示します。残す・別の端末で使う・共有するには **JSON で書き出し／読み込み** します
 * **評価には使いません**: 開発者向け画面のテスト評価・CI・ベンチマークは、組み込み辞書だけで計算します
 
@@ -433,6 +434,8 @@ https://bowo-prasetyo.github.io/japanese-sentiment-analyzer/pseudo-api/?text=今
 
 ### 📤 レスポンス例
 
+`?text=今日は嬉しい` のレスポンス（`tests/readme.test.js` が、実際の出力と一致するかを確認しています）:
+
 ```json
 {
   "result": "positive",
@@ -441,12 +444,28 @@ https://bowo-prasetyo.github.io/japanese-sentiment-analyzer/pseudo-api/?text=今
   "threshold": 0.5,
   "hits": 1,
   "matchedWords": [
-    { "word": "嬉し", "category": "喜び", "base": 1, "polarity": 1, "negated": false, "multiplier": 1 }
+    { "word": "嬉し", "category": "喜び", "base": 1, "polarity": 1, "negated": false, "multiplier": 1, "index": 3 }
   ],
+  "skippedWords": [],
   "categoryScore": { "喜び": 1 },
-  "debugLabel": "neutral"
+  "debugLabel": "neutral",
+  "morphology": false,
+  "abstained": false
 }
 ```
+
+| 項目 | 内容 |
+| --- | --- |
+| `result` | `positive` / `negative` / `neutral`。**判定できなかったときも `neutral`**（`abstained` で区別する） |
+| `abstained` | `true` なら「判定できません」（極性を持つ語が1つもなかった）。中立という判定ではない |
+| `normalizedScore` | 判定に使う値（合計 ÷ √ヒット数）。`±threshold` 以上でポジティブ／ネガティブ |
+| `score` / `hits` | 合計と、極性を持つ語の数 |
+| `matchedWords` | 判定に使った語。`base`（辞書の値）→ 否定（`negated`）・強調（`multiplier`）→ `polarity`。`index` は文中の位置 |
+| `skippedWords` | 見つかったが数えなかった語。`reason`: `condition`（条件）/ `description`（説明）/ `usage`（用法）/ `contrast`（逆接より前）、`marker`: 目印の語 |
+| `categoryScore` | カテゴリ（レビュー観点・感情）ごとの合計 |
+| `contrastMarker` | 逆接（けど・のに など）で後半だけを判定したときの、その語。逆接がなければ出力しない |
+| `debugLabel` | 内部の印。`no_hit`（語なし）・`contrast_override`（逆接で後半を優先）のほかは `"neutral"`（判定とは関係ない） |
+| `morphology` | 形態素解析を使ったか（擬似API は常に `false`） |
 
 ---
 
@@ -503,7 +522,7 @@ const json = JSON.parse(result);
 | 語の境界 | 部分一致（「精神」の中の「神」は除外リストで防ぐ） | **2文字以下の語**は形態素の先頭からしか一致しない（`boundaryCheckMaxLength`）。長い語は「お気に入り」の「気に入」のように複合語の中でも一致する |
 
 * **ブラウザでは任意（オプトイン）**: 既定は文字列モードで、kuromoji は**一切ダウンロードしません**。
-  画面の「形態素解析を使う（辞書 約18MB をダウンロード）」をオンにしたときだけ、kuromoji 本体（バージョン固定 + SRI）と
+  画面下の「詳細設定」（ふだんは閉じています）で「形態素解析を使う（辞書 約18MB をダウンロード）」をオンにしたときだけ、kuromoji 本体（バージョン固定 + SRI）と
   辞書（約18MB、12ファイル）を `data/kuromoji-dict.json` の URL から読み込みます。設定は閲覧者のブラウザに保存されます。
   読み込み中・失敗時は文字列モードで分析し、画面に状態を表示します
   * 既定をオフにした理由: いまの辞書では精度が上がらない（下の表）のに、約18MBのダウンロードが必要なため

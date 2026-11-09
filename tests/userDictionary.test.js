@@ -213,3 +213,21 @@ test("importMessage: 実際に取り込んだ数だけを伝える（以前は�
   );
   assert.equal(importMessage({ added: 0, updated: 0, overLimit: 0 }), "追加・更新した語はありません");
 });
+
+// ===== 削除を元に戻す =====
+import { restoreEntry } from "../ui/userDictionary.js";
+
+test("restoreEntry: 削除した語を元の位置に戻す", () => {
+  const list = [entry("A"), entry("B"), entry("C")];
+  const removed = removeEntry(list, "B");
+  assert.deepEqual(restoreEntry(removed, entry("B"), 1).map((e) => e.word), ["A", "B", "C"]);
+  assert.deepEqual(restoreEntry(removed, entry("B"), 99).map((e) => e.word), ["A", "C", "B"]);
+  assert.deepEqual(restoreEntry(removed, entry("B"), undefined).map((e) => e.word), ["A", "C", "B"]);
+});
+
+test("restoreEntry: 同じ語がすでにある・上限に達している ときは戻さない（null）", () => {
+  assert.equal(restoreEntry([entry("B")], entry("B"), 0), null);
+  const full = Array.from({ length: LIMITS.maxEntries }, (_, i) => entry(`語${i}`));
+  assert.equal(restoreEntry(full, entry("B"), 0), null);
+  assert.equal(restoreEntry([], null, 0), null);
+});

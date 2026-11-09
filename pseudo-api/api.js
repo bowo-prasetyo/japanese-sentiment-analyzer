@@ -8,7 +8,8 @@ async function run() {
     const params = new URLSearchParams(window.location.search);
     const text = params.get("text");
 
-    if (!text) {
+    // 空・空白だけの文は分析しない（「判定できません」と区別するため）
+    if (!text || !text.trim()) {
       document.body.textContent = JSON.stringify({
         error: "text parameter required"
       });
