@@ -6,8 +6,9 @@ import { readFileSync } from "node:fs";
 const app = readFileSync(new URL("../app.js", import.meta.url), "utf8");
 
 test("各画面は <main> でくくる（ランドマーク）", () => {
-  assert.equal((app.match(/<main class="card">/g) ?? []).length, 2);
-  assert.equal((app.match(/<\/main>/g) ?? []).length, 2);
+  // 1件ずつ（#/）・まとめて分析（#/bulk）・開発者向け（#/dev）
+  assert.equal((app.match(/<main class="card">/g) ?? []).length, 3);
+  assert.equal((app.match(/<\/main>/g) ?? []).length, 3);
   assert.doesNotMatch(app, /<div class="card">/);
 });
 

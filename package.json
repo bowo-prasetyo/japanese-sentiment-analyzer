@@ -1,6 +1,6 @@
 {
   "name": "tenbin",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "private": true,
   "description": "Tenbin: explainable, browser-only, rule-based Japanese review sentiment analyzer",
   "type": "module",

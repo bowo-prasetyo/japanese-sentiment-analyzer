@@ -513,6 +513,203 @@
       font-size: 12px;
     }
 
+    /* ===== 画面の切り替え（1件ずつ／まとめて分析） ===== */
+    .mode-nav {
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+      margin: 0 0 16px;
+      padding: 3px;
+      border-radius: 999px;
+      background: #eef1f4;
+    }
+
+    .mode-nav a {
+      flex: 1;
+      padding: 6px 12px;
+      border-radius: 999px;
+      text-align: center;
+      font-size: 14px;
+      color: #333;
+      text-decoration: none;
+    }
+
+    .mode-nav a.router-link-exact-active {
+      background: #fff;
+      color: #1b5e20;
+      font-weight: bold;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    }
+
+    /* ===== まとめて分析 ===== */
+    .bulk-intro { margin: 0 0 12px; }
+
+    .field-label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 13px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .bulk-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 14px;
+      margin-top: 8px;
+      font-size: 13px;
+      color: #333;
+    }
+
+    .bulk-controls select { margin-left: 4px; padding: 3px 4px; border: 1px solid #ccc; border-radius: 6px; }
+
+    .bulk-heading { margin: 16px 0 8px; font-size: 18px; text-align: center; }
+
+    .dist-bar {
+      display: flex;
+      height: 18px;
+      overflow: hidden;
+      border-radius: 9px;
+      background: #eee;
+    }
+
+    .dist-seg.positive { background: #2e7d32; }
+    .dist-seg.negative { background: #c62828; }
+    .dist-seg.neutral  { background: #607d8b; }
+    /* 判定できません: 色だけでなく、斜線でも区別する */
+    .dist-seg.abstain, .dist-swatch.abstain {
+      background: repeating-linear-gradient(45deg, #9a7400 0 4px, #fff8e1 4px 7px);
+    }
+
+    .dist-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 16px;
+      margin: 8px 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .dist-legend li { margin: 0; font-size: 13px; color: #333; }
+
+    .dist-swatch {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-right: 2px;
+      border-radius: 2px;
+      vertical-align: middle;
+    }
+
+    .dist-swatch.positive { background: #2e7d32; }
+    .dist-swatch.negative { background: #c62828; }
+    .dist-swatch.neutral  { background: #607d8b; }
+
+    /* 観点別: 左に悪かった件数、右に良かった件数（中央から伸びる棒） */
+    .aspect-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      table-layout: fixed;
+    }
+
+    .aspect-table th, .aspect-table td { padding: 3px 4px; }
+    .aspect-table thead th { font-size: 12px; color: #666; font-weight: normal; text-align: left; }
+    .aspect-table thead th.neg-head { text-align: right; }
+    .aspect-table tbody th { width: 6em; text-align: left; font-weight: normal; color: #333; }
+    .aspect-table td.aspect-neg { border-right: 1px solid #bbb; }
+
+    .bar-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      width: 100%;
+      padding: 2px 0;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 12px;
+      color: #333;
+    }
+
+    .bar-btn.neg { justify-content: flex-end; }
+    .bar-btn:disabled { cursor: default; color: #666; }
+    .bar-btn .bar { display: inline-block; height: 12px; min-width: 0; border-radius: 2px; }
+    .bar-btn.neg .bar { background: #c62828; }
+    .bar-btn.pos .bar { background: #2e7d32; }
+    .bar-btn:not(:disabled):hover .bar { opacity: 0.8; }
+    .bar-count { flex: none; min-width: 1.5em; text-align: center; }
+
+    .top-words {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 16px;
+    }
+
+    .top-words h4 { margin: 0 0 4px; font-size: 13px; }
+    .top-words ol { margin: 0; padding-left: 20px; }
+    .top-words li { margin-bottom: 2px; }
+
+    .filters { display: flex; flex-wrap: wrap; gap: 6px; }
+    .filters .chip[aria-pressed="true"] { background: #2e7d32; border-color: #2e7d32; color: #fff; }
+    .filter-note { margin: 8px 0 0; font-size: 13px; color: #333; }
+
+    .review-list { margin: 8px 0; padding: 0; list-style: none; }
+    .review-list li { margin: 0; border-bottom: 1px solid #eee; }
+
+    .review-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 2px;
+      border: none;
+      background: none;
+      text-align: left;
+      font-size: 14px;
+      color: #222;
+      cursor: pointer;
+    }
+
+    .review-row:hover { background: #fafafa; }
+    .review-no { flex: none; min-width: 2em; font-size: 12px; color: #666; text-align: right; }
+
+    .review-text {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .review-list li.open .review-text { white-space: normal; }
+
+    .verdict-badge {
+      flex: none;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    .verdict-badge.positive { background: #e8f5e9; color: #2e7d32; }
+    .verdict-badge.negative { background: #ffebee; color: #c62828; }
+    .verdict-badge.neutral  { background: #eceff1; color: #37474f; }
+    .verdict-badge.abstain  { background: #fff8e1; color: #6d5200; border: 1px dashed #c9a227; }
+
+    .review-detail { padding: 0 4px 12px 2.6em; font-size: 13px; }
+    .review-detail .highlighted { margin-bottom: 6px; }
+    .evidence { margin: 4px 0; }
+
+    .bulk-export {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
     .result {
       margin-top: 15px;
       padding: 10px;
