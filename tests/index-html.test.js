@@ -113,7 +113,11 @@ test("文字色と背景色のコントラストが 4.5:1 以上", () => {
     ["mark.hl", "mark.hl.zero"], ["mark.hl.skipped", ".highlighted"], [".meter-labels"], [".meter-note"],
     // 詳細設定・開発者向けの評価ボタン
     [".advanced-state"], ["button.secondary", "button.secondary"], ["button.secondary", "button.secondary:hover"],
-    ["button.secondary:disabled", "button.secondary"]
+    ["button.secondary:disabled", "button.secondary"],
+    // まとめて分析
+    [".verdict-badge.positive", ".verdict-badge.positive"], [".verdict-badge.negative", ".verdict-badge.negative"],
+    [".verdict-badge.neutral", ".verdict-badge.neutral"], [".verdict-badge.abstain", ".verdict-badge.abstain"],
+    [".review-no"], [".filter-note"], [".bulk-controls"], [".mode-nav a"], [".mode-nav a.router-link-exact-active"]
   ];
   for (const [fgSel, bgSel] of pairs) {
     const fg = hexOf(cssBlock(fgSel), "color");

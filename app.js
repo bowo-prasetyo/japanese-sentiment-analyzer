@@ -9,6 +9,10 @@ import {
 import { splitCategoryScores, formatScore, scoreClass } from "./ui/breakdown.js";
 import { isAnalyzeShortcut, shortcutLabel, needsScrollToResult } from "./ui/interaction.js";
 import { highlightSegments, meterPosition, meterLabel, METER_RANGE } from "./ui/visual.js";
+import {
+  BULK_LIMITS, splitReviews, resolveSplitMode, decodeText, parseCsv, pickReviewColumn, reviewsFromCsv,
+  limitReviews, summarize, filterItems, resultsToCsv, verdictOf
+} from "./ui/bulk.js";
 
 // 文中の語の印の種類 → 読み上げ・凡例の言葉
 const MARK_TEXT = { positive: "ポジティブ", negative: "ネガティブ", zero: "どちらでもない", skipped: "数えなかった語" };
@@ -150,19 +154,19 @@ const UserDictionaryPanel = {
         <p v-if="negatedForm" class="advice">{{ negationAdvice }}</p>
         <p v-if="preview" :class="['preview', preview.status]">
           <template v-if="preview.status === 'counted'">
-            ✓ 入力中の文で見つかり、判定に使われます<template v-if="polarityValid">（<template v-if="preview.negated">否定されているため </template>{{ formatScore(preview.polarity) }}）</template>。
+            ✓ {{ sourceLabel }}で見つかり、判定に使われます<template v-if="polarityValid">（<template v-if="preview.negated">否定されているため </template>{{ formatScore(preview.polarity) }}）</template>。
           </template>
           <template v-else-if="preview.status === 'skipped'">
-            △ 入力中の文で見つかりますが、数えません（{{ skipReasonText(preview) }}）。
+            △ {{ sourceLabel }}で見つかりますが、数えません（{{ skipReasonText(preview) }}）。
           </template>
           <template v-else-if="preview.status === 'covered'">
-            △ 入力中の文にありますが、<template v-if="preview.by">より長い辞書の語「{{ preview.by }}」</template><template v-else>別の語</template>の一部として扱われるため、使われません。
+            △ {{ sourceLabel }}にありますが、<template v-if="preview.by">より長い辞書の語「{{ preview.by }}」</template><template v-else>別の語</template>の一部として扱われるため、使われません。
           </template>
           <template v-else>
-            ✗ 入力中の文には見つかりません。<template v-if="stemFound">「{{ stem }}」なら見つかります。</template>
+            ✗ {{ sourceLabel }}には見つかりません。<template v-if="stemFound">「{{ stem }}」なら見つかります。</template>
           </template>
         </p>
-        <p v-else-if="trimmedWord && !hasText" class="muted">上の入力欄に文を入れると、その文で一致するかを追加する前に確かめられます。</p>
+        <p v-else-if="trimmedWord && !hasText" class="muted">{{ emptyHint }}</p>
       </div>
       <p class="muted">極性: 肯定は 0.5〜1.0、否定は −0.5〜−1.0 が目安（範囲 {{ limits.minPolarity }}〜{{ limits.maxPolarity }}）。</p>
       <ul v-if="errors.length" class="form-errors"><li v-for="e in errors" :key="e">{{ e }}</li></ul>
@@ -191,8 +195,12 @@ const UserDictionaryPanel = {
       </div>
     </details>
   `,
-  // text: 分析パネルの入力中の文（追加する前に、その文で一致するかを確かめる）
-  props: { text: { type: String, default: "" } },
+  // text: 追加する前に、その文で一致するかを確かめる文（分析パネルの入力中の文・まとめて分析で開いているレビュー）
+  props: {
+    text: { type: String, default: "" },
+    sourceLabel: { type: String, default: "入力中の文" },
+    emptyHint: { type: String, default: "上の入力欄に文を入れると、その文で一致するかを追加する前に確かめられます。" }
+  },
   data() {
     return { dict: userDict, limits: LIMITS, word: "", polarity: 0.8, category: USER_CATEGORY, errors: [], warnings: [], message: "", open: false, negationAdvice: NEGATION_ADVICE,
       // 直前に削除した語（「元に戻す」用）。次の追加・読み込み・削除で消える
@@ -293,6 +301,40 @@ const UserDictionaryPanel = {
     },
     openPanel() {
       this.open = true;
+    }
+  }
+};
+
+// ===== 詳細設定: 形態素解析（ふだんは使わなくてよいので、閉じておく。オンのときは見出しに状態を出す） =====
+const AdvancedSettings = {
+  template: `
+    <details class="advanced">
+      <summary>詳細設定<span class="advanced-state">（形態素解析: {{ morphSummary }}）</span></summary>
+      <div class="morph-toggle">
+        <label>
+          <input type="checkbox" :checked="morph.status !== 'off'" @change="toggleMorph($event.target.checked)">
+          形態素解析を使う（辞書 約18MB をダウンロード）
+        </label>
+        <span :class="['morph-status', morph.status]" role="status">{{ morphLabels[morph.status] }}</span>
+      </div>
+      <p class="muted">
+        文を単語に分けて、語の区切りと否定をより正確に見分けます。
+        いまの辞書では、判定の精度はほとんど変わりません（ベンチマークの結果は README を参照）。
+        設定はこのブラウザに保存されます。
+      </p>
+    </details>
+  `,
+  data() {
+    return { morph, morphLabels: MORPH_LABELS };
+  },
+  computed: {
+    morphSummary() {
+      return { off: "オフ", loading: "読み込み中", ready: "オン", failed: "読み込めませんでした" }[this.morph.status];
+    }
+  },
+  methods: {
+    toggleMorph(on) {
+      on ? enableMorphology() : disableMorphology();
     }
   }
 };
@@ -432,25 +474,10 @@ const AnalysisPanel = {
 
       <user-dictionary-panel ref="userDictionary" :text="text"></user-dictionary-panel>
 
-      <!-- 詳細設定: 形態素解析（ふだんは使わなくてよいので、閉じておく。オンのときは見出しに状態を出す） -->
-      <details class="advanced">
-        <summary>詳細設定<span class="advanced-state">（形態素解析: {{ morphSummary }}）</span></summary>
-        <div class="morph-toggle">
-          <label>
-            <input type="checkbox" :checked="morph.status !== 'off'" @change="toggleMorph($event.target.checked)">
-            形態素解析を使う（辞書 約18MB をダウンロード）
-          </label>
-          <span :class="['morph-status', morph.status]" role="status">{{ morphLabels[morph.status] }}</span>
-        </div>
-        <p class="muted">
-          文を単語に分けて、語の区切りと否定をより正確に見分けます。
-          いまの辞書では、判定の精度はほとんど変わりません（ベンチマークの結果は README を参照）。
-          設定はこのブラウザに保存されます。
-        </p>
-      </details>
+      <advanced-settings></advanced-settings>
     </div>
   `,
-  components: { UserDictionaryPanel },
+  components: { UserDictionaryPanel, AdvancedSettings },
   data() {
     // analyzedText: 表示中の結果の元になった文（入力欄が変わっても、結果はこの文のもの）
     return { text: "", analyzedText: "", r: null, inputError: "", examples: EXAMPLES, morph, morphLabels: MORPH_LABELS, userDict, appState, shortcutLabel: SHORTCUT_LABEL, markText: MARK_TEXT, meterRange: METER_RANGE };
@@ -464,9 +491,6 @@ const AnalysisPanel = {
     },
     abstain() {
       return abstainExplanation(this.r);
-    },
-    morphSummary() {
-      return { off: "オフ", loading: "読み込み中", ready: "オン", failed: "読み込めませんでした" }[this.morph.status];
     },
     meter() {
       return meterPosition(this.r?.normalizedScore, this.r?.threshold ?? 0.5);
@@ -510,6 +534,17 @@ const AnalysisPanel = {
     // ユーザー辞書を変えたら、表示中の結果を分析し直す
     "userDict.entries"() {
       this.reanalyze();
+    },
+    // まとめて分析から「1件ずつの画面で詳しく見る」で来たとき（#/?text=...）、辞書を読み込めたら分析する
+    "appState.status": {
+      immediate: true,
+      handler(status) {
+        const fromRoute = this.$route?.query?.text;
+        if (status === "ready" && !this.r && typeof fromRoute === "string" && fromRoute.trim()) {
+          this.text = fromRoute;
+          this.analyze();
+        }
+      }
     },
     // 入力を始めたら、空入力の案内を消す
     text() {
@@ -561,9 +596,6 @@ const AnalysisPanel = {
       this.$refs.userDictionary.openPanel();
       this.$nextTick(() => this.$refs.userDictionary.$el.scrollIntoView({ behavior: "smooth", block: "start" }));
     },
-    toggleMorph(on) {
-      on ? enableMorphology() : disableMorphology();
-    },
     tryExample(ex) {
       this.text = ex;
       if (this.config) this.analyze();
@@ -571,22 +603,409 @@ const AnalysisPanel = {
   }
 };
 
-// ===== 一般向け画面 =====
-const Home = {
-  components: { AnalysisPanel },
+// ===== 一般向けの画面に共通の見出し・切り替え・フッター =====
+const SiteHeader = {
   template: `
-    <main class="card">
+    <header>
       <img class="logo-mark" src="assets/mark.svg" alt="" width="56" height="56">
       <h1>Tenbin（天秤）<span class="subtitle">日本語レビュー感情分析</span></h1>
       <p class="tagline">理由が見える・ブラウザだけで動く</p>
+      <nav class="mode-nav" aria-label="分析のしかた">
+        <router-link to="/">1件ずつ</router-link>
+        <router-link to="/bulk">まとめて分析</router-link>
+      </nav>
+    </header>
+  `
+};
+
+const SiteFooter = {
+  template: `
+    <footer class="footer">
+      <router-link to="/dev">開発者向け（評価・デバッグ）</router-link>
+      ・
+      <a href="https://github.com/bowo-prasetyo/japanese-sentiment-analyzer">GitHub</a>
+    </footer>
+  `
+};
+
+// ===== 一般向け画面 =====
+const Home = {
+  components: { AnalysisPanel, SiteHeader, SiteFooter },
+  template: `
+    <main class="card">
+      <site-header></site-header>
       <analysis-panel></analysis-panel>
-      <footer class="footer">
-        <router-link to="/dev">開発者向け（評価・デバッグ）</router-link>
-        ・
-        <a href="https://github.com/bowo-prasetyo/japanese-sentiment-analyzer">GitHub</a>
-      </footer>
+      <site-footer></site-footer>
     </main>
   `
+};
+
+// ===== まとめて分析 =====
+const BULK_EXAMPLE = [
+  "スープが濃厚で、麺との相性も抜群だった",
+  "店員さんの対応が丁寧で、居心地がよかった",
+  "値段のわりに量が少なく、コスパが悪い",
+  "注文してから料理が出てくるまで40分も待たされた",
+  "餃子がパリパリで美味しい。また行きたい",
+  "店内が狭くて、隣の席との距離が近すぎる",
+  "駅から歩いて5分ほどの場所にある",
+  "味は普通だけど、接客がとても感じのいいお店",
+  "スープがぬるくて、麺も伸びていた",
+  "ランチの時間帯は混んでいた"
+].join("\n");
+
+const VERDICT_LABELS = { positive: "ポジティブ", negative: "ネガティブ", neutral: "中立", abstain: "判定できません" };
+const PAGE_SIZE = 50;
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+
+const Bulk = {
+  components: { SiteHeader, SiteFooter, UserDictionaryPanel, AdvancedSettings },
+  template: `
+    <main class="card">
+      <site-header></site-header>
+
+      <p class="muted bulk-intro">
+        複数のレビューを1件ずつ分析して、全体を集計します。
+        入力したレビューは、このブラウザの中だけで分析され、どこにも送信されません。
+      </p>
+
+      <label class="field-label" for="bulk-input">レビュー（1行に1件、または空行で区切る）</label>
+      <textarea id="bulk-input" v-model="input" rows="8" @keydown="onKeydown"
+                placeholder="例:&#10;スープが濃厚で美味しかった&#10;店員の態度が悪かった"
+                :aria-invalid="inputError ? 'true' : null" :aria-describedby="inputError ? 'bulk-error' : 'bulk-count'"></textarea>
+
+      <div class="bulk-controls">
+        <label>区切り方
+          <select v-model="splitMode">
+            <option value="auto">自動（空行があれば空行で区切る）</option>
+            <option value="lines">1行に1件</option>
+            <option value="paragraphs">空行で区切る</option>
+          </select>
+        </label>
+        <label class="small file-label">
+          ファイルを読み込む（.txt / .csv）
+          <input type="file" accept=".txt,.csv,text/plain,text/csv" @change="loadFile">
+        </label>
+        <button type="button" class="link" @click="useExample">例を入れる</button>
+      </div>
+
+      <div v-if="csv" class="bulk-controls">
+        <label>レビューの列
+          <select v-model.number="csv.column" @change="applyCsvColumn">
+            <option v-for="(h, i) in csv.headers" :key="i" :value="i">{{ h }}</option>
+          </select>
+        </label>
+      </div>
+      <p v-if="fileNote" class="muted">{{ fileNote }}</p>
+
+      <p id="bulk-count" class="muted" aria-live="polite">
+        {{ pending.reviews.length }} 件のレビューとして分析します<template v-if="input.trim()">（{{ splitModeText }}）</template>
+        <template v-if="pending.dropped">。上限 {{ maxReviews }} 件を超えた {{ pending.dropped }} 件は分析しません</template>
+      </p>
+      <p v-if="inputError" id="bulk-error" class="input-error" role="alert">{{ inputError }}</p>
+
+      <button class="primary" type="button" @click="analyze" :disabled="appState.status !== 'ready' || running">
+        {{ appState.status === "loading" ? "辞書を読み込み中…" : running ? "分析中…" : "まとめて分析" }}
+      </button>
+      <div v-if="appState.status === 'failed'" class="load-error" role="alert">
+        <p>辞書（感情を表す語の一覧）を読み込めませんでした。通信状況を確認して、もう一度お試しください。</p>
+        <button type="button" class="small" @click="retryConfig">再読み込み</button>
+      </div>
+
+      <p class="visually-hidden" role="status" aria-live="polite">{{ announcement }}</p>
+      <p v-if="stale" class="stale-notice" role="status">
+        入力が変わりました。下の結果は前の入力のものです。「まとめて分析」を押すと結果を更新します。
+      </p>
+
+      <div v-if="items.length" ref="results" :class="['results', 'bulk-results', { stale }]">
+        <h2 class="bulk-heading">結果（{{ summary.total }} 件）</h2>
+
+        <div class="dist-bar" role="img" :aria-label="distributionLabel">
+          <span v-for="v in verdictKeys" :key="v" v-show="summary.counts[v]"
+                :class="['dist-seg', v]" :style="{ width: share(summary.counts[v], summary.total) }"></span>
+        </div>
+        <ul class="dist-legend">
+          <li v-for="v in verdictKeys" :key="v">
+            <span :class="['dist-swatch', v]" aria-hidden="true"></span>
+            {{ verdictLabels[v] }} <strong>{{ summary.counts[v] }}</strong> 件（{{ share(summary.counts[v], summary.total) }}）
+          </li>
+        </ul>
+        <p v-if="summary.decided" class="muted">
+          判定できた {{ summary.decided }} 件のうち、ポジティブ {{ share(summary.counts.positive, summary.decided) }}・ネガティブ {{ share(summary.counts.negative, summary.decided) }}
+        </p>
+        <p v-if="summary.counts.abstain" class="muted">
+          判定できません {{ summary.counts.abstain }} 件: 辞書に感情を表す語が見つからなかったレビューです（中立という判定ではありません）。
+          一覧で開いて、下のユーザー辞書に語を追加できます。
+        </p>
+
+        <section v-if="summary.aspects.length" class="section">
+          <h3>観点別（何件のレビューで良かったか・悪かったか）</h3>
+          <table class="aspect-table">
+            <thead><tr><th scope="col">観点</th><th scope="col" class="neg-head">悪かった</th><th scope="col">良かった</th></tr></thead>
+            <tbody>
+              <tr v-for="a in summary.aspects" :key="a.category">
+                <th scope="row">{{ a.category }}</th>
+                <td class="aspect-neg">
+                  <button type="button" class="bar-btn neg" :disabled="!a.negative" @click="setAspect(a.category, 'negative')"
+                          :aria-label="a.category + ' が悪かったレビュー ' + a.negative + ' 件を表示'">
+                    <span class="bar-count">{{ a.negative }}</span><span class="bar" :style="{ width: barWidth(a.negative) }"></span>
+                  </button>
+                </td>
+                <td class="aspect-pos">
+                  <button type="button" class="bar-btn pos" :disabled="!a.positive" @click="setAspect(a.category, 'positive')"
+                          :aria-label="a.category + ' が良かったレビュー ' + a.positive + ' 件を表示'">
+                    <span class="bar" :style="{ width: barWidth(a.positive) }"></span><span class="bar-count">{{ a.positive }}</span>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="muted">棒を押すと、そのレビューだけを一覧に表示します。</p>
+        </section>
+
+        <section v-if="summary.topWords.positive.length || summary.topWords.negative.length" class="section">
+          <h3>よく出た語（出てきたレビューの件数）</h3>
+          <div class="top-words">
+            <div>
+              <h4 class="pos-text">良い評価の語</h4>
+              <ol><li v-for="w in summary.topWords.positive" :key="w.word">{{ w.word }} <span class="muted">{{ w.count }} 件</span></li></ol>
+            </div>
+            <div>
+              <h4 class="neg-text">悪い評価の語</h4>
+              <ol><li v-for="w in summary.topWords.negative" :key="w.word">{{ w.word }} <span class="muted">{{ w.count }} 件</span></li></ol>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h3 ref="listHeading" tabindex="-1">レビュー一覧</h3>
+          <div class="filters" role="group" aria-label="判定で絞り込む">
+            <button v-for="f in verdictFilters" :key="f.key" type="button" class="chip"
+                    :aria-pressed="filter.verdict === f.key ? 'true' : 'false'" @click="setVerdict(f.key)">
+              {{ f.label }} {{ f.count }}
+            </button>
+          </div>
+          <p v-if="filter.aspect" class="filter-note">
+            観点「{{ filter.aspect }}」が{{ filter.side === "negative" ? "悪かった" : "良かった" }}レビュー
+            <button type="button" class="link" @click="clearAspect">解除</button>
+          </p>
+          <p class="muted">{{ filtered.length }} 件</p>
+
+          <ol class="review-list">
+            <li v-for="item in visible" :key="item.index" :class="{ open: openIndex === item.index }">
+              <button type="button" class="review-row" :aria-expanded="openIndex === item.index ? 'true' : 'false'" @click="toggle(item.index)">
+                <span class="review-no">{{ item.index }}</span>
+                <span :class="['verdict-badge', verdictOf(item.r)]">{{ verdictLabels[verdictOf(item.r)] }}</span>
+                <span class="review-text">{{ item.text }}</span>
+              </button>
+              <div v-if="openIndex === item.index" class="review-detail">
+                <p class="highlighted"><template v-for="(seg, i) in segmentsOf(item)" :key="i"><mark v-if="seg.kind" :class="['hl', seg.kind]" :title="seg.title">{{ seg.text }}<span class="visually-hidden">（{{ markText[seg.kind] }}）</span></mark><template v-else>{{ seg.text }}</template></template></p>
+                <p v-if="!item.r.abstained" class="muted">判定スコア {{ item.r.normalizedScore.toFixed(2) }}（±{{ item.r.threshold }} 以上でポジティブ／ネガティブ）</p>
+                <p v-else class="muted">辞書に感情を表す語が見つかりませんでした（数えなかった語を除く）。下のユーザー辞書で、このレビューに語を追加して確かめられます。</p>
+                <ul v-if="item.r.matchedWords.length" class="evidence">
+                  <li v-for="m in item.r.matchedWords" :key="m.word">
+                    <strong>{{ m.word }}</strong>（{{ m.category }} / {{ formatScore(m.polarity) }}<template v-if="m.negated || m.negatedOnly">・否定</template>）
+                  </li>
+                </ul>
+                <ul v-if="item.r.skippedWords.length" class="evidence muted">
+                  <li v-for="(sk, i) in item.r.skippedWords" :key="i">数えなかった: {{ sk.word }}（{{ skipReasonText(sk) }}）</li>
+                </ul>
+                <router-link :to="{ path: '/', query: { text: item.text } }">1件ずつの画面で詳しく見る</router-link>
+              </div>
+            </li>
+          </ol>
+          <button v-if="filtered.length > shown" type="button" class="secondary" @click="shown += pageSize">
+            さらに表示（残り {{ filtered.length - shown }} 件）
+          </button>
+        </section>
+
+        <div class="bulk-export">
+          <button type="button" class="secondary" @click="exportCsv">結果を CSV で保存</button>
+          <span class="muted">Excel でそのまま開けます（UTF-8・BOM 付き）</span>
+        </div>
+      </div>
+
+      <user-dictionary-panel :text="openText" source-label="開いているレビュー"
+                             empty-hint="一覧のレビューを開くと、そのレビューで一致するかを追加する前に確かめられます。"></user-dictionary-panel>
+      <advanced-settings></advanced-settings>
+      <site-footer></site-footer>
+    </main>
+  `,
+  data() {
+    return {
+      input: "", splitMode: "auto", csv: null, fileNote: "", inputError: "",
+      items: [], analyzedSource: null, running: false,
+      filter: { verdict: "all", aspect: "", side: "" }, shown: PAGE_SIZE, openIndex: null,
+      appState, userDict, morph, verdictLabels: VERDICT_LABELS, verdictKeys: ["positive", "negative", "neutral", "abstain"],
+      markText: MARK_TEXT, maxReviews: BULK_LIMITS.maxReviews, pageSize: PAGE_SIZE
+    };
+  },
+  computed: {
+    pending() {
+      return limitReviews(splitReviews(this.input, this.splitMode));
+    },
+    splitModeText() {
+      return resolveSplitMode(this.input, this.splitMode) === "paragraphs" ? "空行で区切る" : "1行に1件";
+    },
+    // 結果を表示したあとに入力・区切り方が変わった
+    stale() {
+      return this.items.length > 0 && (this.input !== this.analyzedSource?.input || this.splitMode !== this.analyzedSource?.splitMode);
+    },
+    effectiveConfig() {
+      return this.appState.config && mergeUserDictionary(this.appState.config, this.userDict.entries);
+    },
+    summary() {
+      return summarize(this.items, this.appState.config?.groups);
+    },
+    filtered() {
+      return filterItems(this.items, this.filter);
+    },
+    visible() {
+      return this.filtered.slice(0, this.shown);
+    },
+    verdictFilters() {
+      return [{ key: "all", label: "すべて", count: this.items.length },
+        ...this.verdictKeys.map((key) => ({ key, label: VERDICT_LABELS[key], count: this.summary.counts[key] }))];
+    },
+    maxAspectCount() {
+      return Math.max(1, ...this.summary.aspects.flatMap((a) => [a.positive, a.negative]));
+    },
+    openText() {
+      return this.items.find((it) => it.index === this.openIndex)?.text ?? "";
+    },
+    distributionLabel() {
+      const c = this.summary.counts;
+      return this.verdictKeys.map((v) => `${VERDICT_LABELS[v]} ${c[v]}件`).join("、");
+    },
+    announcement() {
+      return this.items.length ? `${this.summary.total}件を分析しました。${this.distributionLabel}。` : "";
+    }
+  },
+  watch: {
+    // 設定（ユーザー辞書・形態素解析）が変わったら、表示中の結果を同じレビューで分析し直す
+    "userDict.entries"() { this.reanalyze(); },
+    "morph.status"() { this.reanalyze(); },
+    input() { if (this.inputError && this.pending.reviews.length) this.inputError = ""; }
+  },
+  methods: {
+    verdictOf,
+    formatScore,
+    skipReasonText,
+    share(n, d) {
+      return d ? `${Math.round((n / d) * 100)}%` : "0%";
+    },
+    barWidth(n) {
+      return `${(n / this.maxAspectCount) * 100}%`;
+    },
+    segmentsOf(item) {
+      return highlightSegments(item.text, item.r);
+    },
+    runAll(reviews) {
+      const config = this.effectiveConfig, tokenizer = activeTokenizer();
+      return reviews.map((text, i) => {
+        const r = analyzeText(text, config, { tokenizer });
+        return { index: i + 1, text, r: { ...r, skippedWords: r.skippedWords ?? [] } };
+      });
+    },
+    async analyze() {
+      if (!this.appState.config) return;
+      const { reviews } = this.pending;
+      if (!reviews.length) {
+        this.inputError = "分析するレビューを入力するか、ファイルを読み込んでください（「例を入れる」でも試せます）。";
+        this.items = [];
+        return;
+      }
+      this.inputError = "";
+      this.running = true;
+      // 「分析中…」を描画してから、時間のかかる分析を始める
+      await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
+      try {
+        this.items = this.runAll(reviews);
+        this.analyzedSource = { input: this.input, splitMode: this.splitMode, reviews };
+        this.filter = { verdict: "all", aspect: "", side: "" };
+        this.shown = PAGE_SIZE;
+        this.openIndex = null;
+      } finally {
+        this.running = false;
+      }
+      this.$nextTick(() => {
+        const el = this.$refs.results;
+        if (el && needsScrollToResult(el.getBoundingClientRect().top, window.innerHeight)) {
+          el.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" });
+        }
+      });
+    },
+    reanalyze() {
+      if (this.items.length && this.appState.config) this.items = this.runAll(this.analyzedSource.reviews);
+    },
+    onKeydown(event) {
+      if (!isAnalyzeShortcut(event)) return;
+      event.preventDefault();
+      this.analyze();
+    },
+    useExample() {
+      this.csv = null;
+      this.fileNote = "";
+      this.splitMode = "auto";
+      this.input = BULK_EXAMPLE;
+    },
+    async loadFile(event) {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (!file) return;
+      this.inputError = "";
+      if (file.size > MAX_FILE_BYTES) {
+        this.inputError = `ファイルが大きすぎます（${MAX_FILE_BYTES / 1024 / 1024}MB まで）`;
+        return;
+      }
+      const { text, encoding } = decodeText(await file.arrayBuffer());
+      if (/\.csv$/i.test(file.name) || file.type === "text/csv") {
+        const rows = parseCsv(text);
+        const pick = pickReviewColumn(rows);
+        this.csv = { rows, ...pick };
+        this.fileNote = `${file.name}（${encoding}、${rows.length - (pick.hasHeader ? 1 : 0)} 行）を読み込みました。` +
+          `レビューの列は自動で選びました。違う場合は「レビューの列」で選んでください。`;
+        this.applyCsvColumn();
+      } else {
+        this.csv = null;
+        this.fileNote = `${file.name}（${encoding}）を読み込みました。`;
+        this.input = text;
+      }
+    },
+    // CSV の選んだ列を、1行に1件の形で入力欄に入れる（何を分析するかが見えるように）
+    applyCsvColumn() {
+      if (!this.csv) return;
+      this.input = reviewsFromCsv(this.csv.rows, this.csv.column, this.csv.hasHeader).join("\n");
+      this.splitMode = "lines";
+    },
+    toggle(index) {
+      this.openIndex = this.openIndex === index ? null : index;
+    },
+    setVerdict(key) {
+      this.filter.verdict = key;
+      this.shown = PAGE_SIZE;
+    },
+    setAspect(category, side) {
+      this.filter = { verdict: "all", aspect: category, side };
+      this.shown = PAGE_SIZE;
+      this.$nextTick(() => this.$refs.listHeading?.focus());
+    },
+    clearAspect() {
+      this.filter.aspect = "";
+      this.filter.side = "";
+    },
+    exportCsv() {
+      const url = URL.createObjectURL(new Blob([resultsToCsv(this.items, this.appState.config?.groups)], { type: "text/csv" }));
+      const a = Object.assign(document.createElement("a"), { href: url, download: "tenbin-results.csv" });
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    },
+    retryConfig() {
+      loadConfig().catch(() => { /* 失敗は appState.status で表示 */ });
+    }
+  }
 };
 
 // ===== 開発者向け画面 =====
@@ -697,6 +1116,7 @@ const Dev = {
 // Router
 const routes = [
   { path: "/", component: Home, meta: { title: "Tenbin（天秤）— 日本語レビュー感情分析" } },
+  { path: "/bulk", component: Bulk, meta: { title: "まとめて分析 — Tenbin（天秤）" } },
   { path: "/dev", component: Dev, meta: { title: "開発者向け（評価・デバッグ）— Tenbin（天秤）" } }
 ];
 

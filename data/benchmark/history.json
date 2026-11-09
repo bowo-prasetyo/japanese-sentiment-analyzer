@@ -84,5 +84,17 @@
     "coverageOnSentiment": 0.86,
     "accuracyOnDecided": 0.844444,
     "date": "2026-11-09"
+  },
+  {
+    "benchmark": "b1",
+    "version": "0.16.0",
+    "macroF1": 0.814354,
+    "accuracy": 0.813333,
+    "noHit": 60,
+    "total": 150,
+    "coverage": 0.6,
+    "coverageOnSentiment": 0.86,
+    "accuracyOnDecided": 0.844444,
+    "date": "2026-11-09"
   }
 ]
