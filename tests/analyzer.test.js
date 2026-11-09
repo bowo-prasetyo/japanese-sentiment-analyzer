@@ -473,3 +473,42 @@ test("語が見つかって中立になった場合は abstained ではない", 
   assert.equal(r.abstained, false);
   assert.equal(r.result, "neutral");
 });
+
+// ===== 逆接（けど・のに など）: 前半の語は「数えなかった語」として返す =====
+
+test("逆接: 判定は後半だけ。前半で見つかった語は reason: contrast で返す", () => {
+  const r = analyzeText("デザインは最高で使いやすいけど、少し高い", config);
+  assert.equal(r.debugLabel, "contrast_override");
+  assert.equal(r.contrastMarker, "けど");
+  assert.equal(r.abstained, true);   // 後半に評価の語がない
+  const contrast = r.skippedWords.filter((s) => s.reason === "contrast");
+  assert.deepEqual(contrast.map((s) => [s.word, s.marker]), [["最高", "けど"], ["使いやす", "けど"]]);
+  assert.ok(contrast.every((s) => s.polarity > 0));
+});
+
+test("逆接: 前半の語は判定・スコアに影響しない（従来と同じ判定）", () => {
+  const text = "見た目は最悪だけど、味は美味しい";
+  const r = analyzeText(text, config);
+  const afterOnly = analyzeText("、味は美味しい", config);
+  assert.equal(r.result, afterOnly.result);
+  assert.equal(r.normalizedScore, afterOnly.normalizedScore);
+  assert.deepEqual(r.matchedWords, afterOnly.matchedWords);
+  assert.deepEqual(r.skippedWords.map((s) => [s.word, s.reason]), [["最悪", "contrast"]]);
+});
+
+test("逆接: 前半の語の条件・説明などの除外理由はそのまま残す", () => {
+  const r = analyzeText("動かない場合は交換と書いてあるけど、すぐ届いて嬉しい", config);
+  assert.ok(r.skippedWords.some((s) => s.word === "動か" && s.reason === "condition"));
+});
+
+test("逆接が2つ: 判定に使った部分の直前の逆接を contrastMarker にする", () => {
+  const r = analyzeText("最高だけど高いのに、満足", config);
+  assert.equal(r.debugLabel, "contrast_override");
+  assert.ok(r.skippedWords.filter((s) => s.reason === "contrast").some((s) => s.word === "最高"));
+  // splitters の順で「のに」が先に分かれ、前半「最高だけど高い」の中の「けど」の前も数えない
+  assert.equal(r.contrastMarker, "のに");
+});
+
+test("逆接がなければ contrastMarker はない", () => {
+  assert.equal(analyzeText("最高でした", config).contrastMarker, undefined);
+});

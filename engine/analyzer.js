@@ -135,9 +135,18 @@ export function analyzeText(text, config, options = {}) {
         const after = parts.slice(1).join(s); // 複数対策
         const afterResult = analyzeText(after, config, options);
 
-        // 👉 後半を優先（ここがポイント）
+        // 👉 後半を優先（ここがポイント）。判定は後半だけで行う。
+        // 前半で見つかった語は捨てずに「数えなかった語」（理由: 逆接）として返し、
+        // 画面で「なぜ数えなかったか」を示せるようにする（判定・評価には影響しない）。
+        const beforeResult = analyzeText(parts[0], config, options);
+        const contrastSkipped = beforeResult.matchedWords.map(({ word, category, polarity }) => ({
+          word, category, reason: "contrast", marker: s, polarity
+        }));
         return {
           ...afterResult,
+          skippedWords: [...beforeResult.skippedWords, ...contrastSkipped, ...afterResult.skippedWords],
+          // 判定に使った部分の直前の逆接（後半がさらに逆接で分かれたときは、その内側のもの）
+          contrastMarker: afterResult.contrastMarker ?? s,
           debugLabel: "contrast_override"
         };
       }

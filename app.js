@@ -1,16 +1,37 @@
 import { analyzeText } from "./engine/analyzer.js";
 import { evaluate, LABELS } from "./engine/evaluator.js";
-import { displayLabel, displayResult } from "./ui/labels.js";
+import { displayLabel, displayResult, abstainExplanation, skipReasonText, isBlankInput } from "./ui/labels.js";
 import {
   USER_CATEGORY, LIMITS, validateEntry, warningsFor, selectableCategories, mergeUserDictionary,
   upsertEntry, removeEntry, serialize, parseImport, loadEntries, saveEntries
 } from "./ui/userDictionary.js";
 import { splitCategoryScores, formatScore, scoreClass } from "./ui/breakdown.js";
 
-// 辞書は一度だけ読み込み、画面間で共有する
+// ===== 感情辞書（data/config.json）: 一度だけ読み込み、画面間で共有する =====
+// status: "loading" / "ready" / "failed"（失敗したら「再読み込み」で再試行できる）
+const appState = Vue.reactive({ config: null, status: "loading" });
 let configPromise = null;
 function loadConfig() {
-  configPromise ??= fetch("./data/config.json").then((res) => res.json());
+  if (!configPromise) {
+    appState.status = "loading";
+    configPromise = fetch("./data/config.json")
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((config) => {
+        appState.config = Vue.markRaw(config);
+        appState.status = "ready";
+        initUserDictionary(config);
+        return config;
+      })
+      .catch((err) => {
+        console.warn("辞書を読み込めませんでした:", err);
+        configPromise = null;   // 「再読み込み」で再試行できるように
+        appState.status = "failed";
+        throw err;
+      });
+  }
   return configPromise;
 }
 
@@ -82,11 +103,13 @@ const MORPH_LABELS = {
 // ===== ユーザー辞書: 閲覧者のブラウザに保存（画面間で共有）。評価（#/dev のテスト評価）には使わない =====
 const browserStorage = (() => { try { return window.localStorage; } catch { return null; } })();
 const userDict = Vue.reactive({ entries: [], categories: [], loaded: false });
-loadConfig().then((config) => {
+function initUserDictionary(config) {
+  if (userDict.loaded) return;
   userDict.categories = selectableCategories(config);
   userDict.entries = loadEntries(browserStorage, userDict.categories);
   userDict.loaded = true;
-});
+}
+loadConfig().catch(() => { /* 画面に「読み込めませんでした」を表示する */ });
 function setUserEntries(entries) {
   userDict.entries = entries;
   return saveEntries(browserStorage, entries);
@@ -194,21 +217,27 @@ const EXAMPLES = [
   "動かない場合は、販売店にご連絡ください"
 ];
 
-const SKIP_REASONS = { condition: "条件", description: "説明", usage: "用法" };
-
 // ===== 分析パネル（一般向け・開発者向けで共通） =====
 const AnalysisPanel = {
   props: { dev: { type: Boolean, default: false } },
   template: `
     <div>
-      <textarea v-model="text" rows="4" placeholder="レビューの文を入力..."></textarea>
+      <textarea ref="input" v-model="text" rows="4" placeholder="レビューの文を入力..." aria-label="レビューの文"
+                :aria-invalid="inputError ? 'true' : null" :aria-describedby="inputError ? 'input-error' : null"></textarea>
+      <p v-if="inputError" id="input-error" class="input-error" role="alert">{{ inputError }}</p>
 
       <div class="examples">
         <span class="examples-label">例文:</span>
         <button v-for="ex in examples" :key="ex" class="chip" type="button" @click="tryExample(ex)">{{ ex }}</button>
       </div>
 
-      <button class="primary" @click="analyze">分析</button>
+      <button class="primary" type="button" @click="analyze" :disabled="appState.status !== 'ready'">
+        {{ appState.status === "loading" ? "辞書を読み込み中…" : "分析" }}
+      </button>
+      <div v-if="appState.status === 'failed'" class="load-error" role="alert">
+        <p>辞書（感情を表す語の一覧）を読み込めませんでした。通信状況を確認して、もう一度お試しください。</p>
+        <button type="button" class="small" @click="retryConfig">再読み込み</button>
+      </div>
       <div class="morph-toggle">
         <label>
           <input type="checkbox" :checked="morph.status !== 'off'" @change="toggleMorph($event.target.checked)">
@@ -219,12 +248,24 @@ const AnalysisPanel = {
 
       <template v-if="r">
         <div :class="['result', label.cssClass]">{{ label.text }}</div>
-        <p v-if="r.abstained" class="score-line">
-          辞書に感情を表す語が見つかりませんでした。<strong>中立という判定ではありません。</strong><br>
+        <p v-if="abstain" class="score-line">
+          <template v-if="abstain.kind === 'contrast'">
+            「{{ abstain.marker }}」より後に、評価を表す辞書の語が見つかりませんでした。
+            「{{ abstain.marker }}」より前の語（{{ abstain.words.join("・") }}）は、後半を優先するため数えていません。
+          </template>
+          <template v-else-if="abstain.kind === 'notCounted'">
+            辞書の語（{{ abstain.words.join("・") }}）は見つかりましたが、条件・説明の中にあるか別の意味で使われているため、数えていません。
+          </template>
+          <template v-else-if="abstain.kind === 'zeroOnly'">
+            見つかった語（{{ abstain.words.join("・") }}）は、ポジティブにもネガティブにも働かない語でした。
+          </template>
+          <template v-else>辞書に感情を表す語が見つかりませんでした。</template>
+          <strong>中立という判定ではありません。</strong><br>
           <button type="button" class="link" @click="openUserDictionary">ユーザー辞書</button>に語を追加すると、判定できるようになります。
         </p>
         <p v-else class="score-line">
           判定スコア {{ r.normalizedScore.toFixed(2) }}（±{{ r.threshold }} 以上でポジティブ／ネガティブ）
+          <template v-if="r.contrastMarker"><br>「{{ r.contrastMarker }}」より後の内容を優先して判定しました。</template>
         </p>
 
         <section v-if="breakdown.aspects.length" class="section">
@@ -263,10 +304,10 @@ const AnalysisPanel = {
         </section>
 
         <section v-if="r.skippedWords.length" class="section">
-          <h3>数えなかった語（書き手の評価ではない・別の意味のため）</h3>
+          <h3>数えなかった語（理由つき）</h3>
           <ul>
-            <li v-for="s in r.skippedWords" :key="s.word">
-              {{ s.word }}（{{ s.category }} / {{ skipReasons[s.reason] }}「{{ s.marker }}」）
+            <li v-for="(s, i) in r.skippedWords" :key="i">
+              {{ s.word }}（{{ s.category }} / {{ skipReasonText(s) }}）
             </li>
           </ul>
         </section>
@@ -283,11 +324,17 @@ const AnalysisPanel = {
   `,
   components: { UserDictionaryPanel },
   data() {
-    return { text: "", r: null, config: null, examples: EXAMPLES, skipReasons: SKIP_REASONS, morph, morphLabels: MORPH_LABELS, userDict };
+    return { text: "", r: null, inputError: "", examples: EXAMPLES, morph, morphLabels: MORPH_LABELS, userDict, appState };
   },
   computed: {
+    config() {
+      return this.appState.config;
+    },
     label() {
       return displayResult(this.r);
+    },
+    abstain() {
+      return abstainExplanation(this.r);
     },
     // 組み込み辞書 ＋ ユーザー辞書
     effectiveConfig() {
@@ -300,26 +347,46 @@ const AnalysisPanel = {
       return splitCategoryScores(this.r?.categoryScore, this.config?.groups);
     }
   },
-  async mounted() {
-    this.config = await loadConfig();
-  },
   watch: {
     // 形態素解析の状態が変わったら（読み込み完了・オフにした など）、表示中の結果を分析し直す
     "morph.status"() {
-      if (this.r) this.analyze();
+      this.reanalyze();
     },
     // ユーザー辞書を変えたら、表示中の結果を分析し直す
     "userDict.entries"() {
-      if (this.r) this.analyze();
+      this.reanalyze();
+    },
+    // 入力を始めたら、空入力の案内を消す
+    text() {
+      if (this.inputError && !isBlankInput(this.text)) this.inputError = "";
     }
   },
   methods: {
     formatScore,
     scoreClass,
+    skipReasonText,
+    // 「分析」ボタン: 空の入力は判定せず、入力を促す（「判定できません」とは表示しない）
     analyze() {
       if (!this.config) return;
+      if (isBlankInput(this.text)) {
+        this.r = null;
+        this.inputError = "分析するレビューの文を入力してください（例文を押しても試せます）。";
+        this.$refs.input.focus();
+        return;
+      }
+      this.inputError = "";
+      this.runAnalysis();
+    },
+    // 設定が変わったときの再分析（結果を表示中で、入力が空でないときだけ。フォーカスは動かさない）
+    reanalyze() {
+      if (this.r && this.config && !isBlankInput(this.text)) this.runAnalysis();
+    },
+    runAnalysis() {
       const r = analyzeText(this.text, this.effectiveConfig, { tokenizer: activeTokenizer() });
       this.r = { ...r, skippedWords: r.skippedWords ?? [] };
+    },
+    retryConfig() {
+      loadConfig().catch(() => { /* 失敗は appState.status で表示 */ });
     },
     openUserDictionary() {
       this.$refs.userDictionary.openPanel();
@@ -330,7 +397,7 @@ const AnalysisPanel = {
     },
     tryExample(ex) {
       this.text = ex;
-      this.analyze();
+      if (this.config) this.analyze();
     }
   }
 };
@@ -376,6 +443,7 @@ const Dev = {
         <button v-for="(s, key) in testsets" :key="key" class="primary" @click="runEvaluation(key)">
           テスト評価（{{ s.name }}）
         </button>
+        <p v-if="evaluationError" class="load-error" role="alert">{{ evaluationError }}</p>
       </section>
 
       <div v-if="evaluation" class="stats">
@@ -421,7 +489,7 @@ const Dev = {
     </div>
   `,
   data() {
-    return { evaluation: null, evaluationSet: "", testsets: TESTSETS, testsetData: {}, labels: LABELS, morph };
+    return { evaluation: null, evaluationSet: "", evaluationError: "", testsets: TESTSETS, testsetData: {}, labels: LABELS, morph };
   },
   methods: {
     display: displayLabel,
@@ -429,13 +497,19 @@ const Dev = {
       return (x * 100).toFixed(1) + "%";
     },
     async runEvaluation(key) {
-      const config = await loadConfig();
-      if (!this.testsetData[key]) {
-        const res = await fetch(TESTSETS[key].path);
-        this.testsetData[key] = await res.json();
+      this.evaluationError = "";
+      try {
+        const config = await loadConfig();
+        if (!this.testsetData[key]) {
+          const res = await fetch(TESTSETS[key].path);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          this.testsetData[key] = await res.json();
+        }
+        this.evaluationSet = key;
+        this.evaluation = evaluate(this.testsetData[key], config, { tokenizer: activeTokenizer() });
+      } catch (err) {
+        this.evaluationError = `${TESTSETS[key].name}を読み込めませんでした（${err.message}）。もう一度お試しください。`;
       }
-      this.evaluationSet = key;
-      this.evaluation = evaluate(this.testsetData[key], config, { tokenizer: activeTokenizer() });
     }
   }
 };
@@ -451,6 +525,7 @@ const router = VueRouter.createRouter({
   routes
 });
 
-const app = Vue.createApp({});
+// #app の中身（起動前の「読み込み中…」）は、このテンプレートで置き換える
+const app = Vue.createApp({ template: "<router-view></router-view>" });
 app.use(router);
 app.mount("#app");
