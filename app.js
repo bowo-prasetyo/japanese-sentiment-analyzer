@@ -3,6 +3,7 @@ import { evaluate, LABELS } from "./engine/evaluator.js";
 import { displayLabel, displayResult, abstainExplanation, skipReasonText, isBlankInput } from "./ui/labels.js";
 import {
   USER_CATEGORY, LIMITS, validateEntry, warningsFor, selectableCategories, mergeUserDictionary,
+  suggestStem, isNegatedForm, previewEntry, NEGATION_ADVICE,
   upsertEntry, removeEntry, serialize, parseImport, loadEntries, saveEntries
 } from "./ui/userDictionary.js";
 import { splitCategoryScores, formatScore, scoreClass } from "./ui/breakdown.js";
@@ -131,6 +132,29 @@ const UserDictionaryPanel = {
         </select>
         <button type="submit" class="small">追加</button>
       </form>
+      <div class="dict-advice" aria-live="polite">
+        <p v-if="stem" class="advice">
+          「{{ trimmedWord }}」のままだと、活用した形（〜た・〜て など）には一致しません。
+          変わらない部分「{{ stem }}」で登録すると、どの形にも一致します。
+          <button type="button" class="small" @click="useStem">「{{ stem }}」にする</button>
+        </p>
+        <p v-if="negatedForm" class="advice">{{ negationAdvice }}</p>
+        <p v-if="preview" :class="['preview', preview.status]">
+          <template v-if="preview.status === 'counted'">
+            ✓ 入力中の文で見つかり、判定に使われます<template v-if="polarityValid">（<template v-if="preview.negated">否定されているため </template>{{ formatScore(preview.polarity) }}）</template>。
+          </template>
+          <template v-else-if="preview.status === 'skipped'">
+            △ 入力中の文で見つかりますが、数えません（{{ skipReasonText(preview) }}）。
+          </template>
+          <template v-else-if="preview.status === 'covered'">
+            △ 入力中の文にありますが、<template v-if="preview.by">より長い辞書の語「{{ preview.by }}」</template><template v-else>別の語</template>の一部として扱われるため、使われません。
+          </template>
+          <template v-else>
+            ✗ 入力中の文には見つかりません。<template v-if="stemFound">「{{ stem }}」なら見つかります。</template>
+          </template>
+        </p>
+        <p v-else-if="trimmedWord && !hasText" class="muted">上の入力欄に文を入れると、その文で一致するかを追加する前に確かめられます。</p>
+      </div>
       <p class="muted">極性: 肯定は 0.5〜1.0、否定は −0.5〜−1.0 が目安（範囲 {{ limits.minPolarity }}〜{{ limits.maxPolarity }}）。</p>
       <ul v-if="errors.length" class="form-errors"><li v-for="e in errors" :key="e">{{ e }}</li></ul>
       <ul v-if="warnings.length" class="form-warnings"><li v-for="w in warnings" :key="w">{{ w }}</li></ul>
@@ -155,10 +179,45 @@ const UserDictionaryPanel = {
       </div>
     </details>
   `,
+  // text: 分析パネルの入力中の文（追加する前に、その文で一致するかを確かめる）
+  props: { text: { type: String, default: "" } },
   data() {
-    return { dict: userDict, limits: LIMITS, word: "", polarity: 0.8, category: USER_CATEGORY, errors: [], warnings: [], message: "", open: false };
+    return { dict: userDict, limits: LIMITS, word: "", polarity: 0.8, category: USER_CATEGORY, errors: [], warnings: [], message: "", open: false, negationAdvice: NEGATION_ADVICE };
+  },
+  computed: {
+    trimmedWord() {
+      return this.word.trim();
+    },
+    hasText() {
+      return !isBlankInput(this.text);
+    },
+    stem() {
+      return suggestStem(this.trimmedWord);
+    },
+    stemFound() {
+      return Boolean(this.stem && this.text.includes(this.stem));
+    },
+    negatedForm() {
+      return isNegatedForm(this.trimmedWord);
+    },
+    polarityValid() {
+      return typeof this.polarity === "number" && Number.isFinite(this.polarity) && this.polarity !== 0;
+    },
+    // 入力中の語が、入力中の文でどう扱われるか（形態素解析の設定も同じものを使う）
+    preview() {
+      if (!appState.config || /\s/.test(this.trimmedWord)) return null;
+      return previewEntry(
+        { word: this.trimmedWord, polarity: this.polarity, category: this.category },
+        this.text, appState.config, this.dict.entries, { tokenizer: activeTokenizer() }
+      );
+    }
   },
   methods: {
+    formatScore,
+    skipReasonText,
+    useStem() {
+      this.word = this.stem;
+    },
     add() {
       const entry = { word: this.word.trim(), polarity: this.polarity, category: this.category };
       this.errors = validateEntry(entry, this.dict.categories);
@@ -319,7 +378,7 @@ const AnalysisPanel = {
         </section>
       </template>
 
-      <user-dictionary-panel ref="userDictionary"></user-dictionary-panel>
+      <user-dictionary-panel ref="userDictionary" :text="text"></user-dictionary-panel>
     </div>
   `,
   components: { UserDictionaryPanel },

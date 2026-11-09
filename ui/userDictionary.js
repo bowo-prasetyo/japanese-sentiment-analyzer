@@ -1,5 +1,6 @@
 // ユーザー辞書: 閲覧者が自分の分野の語を追加する（ブラウザに保存・JSON で書き出し／読み込み）
 // このモジュールは DOM に依存しない（Node のテストで検証する）
+import { analyzeText } from "../engine/analyzer.js";
 
 export const USER_CATEGORY = "ユーザー辞書";
 export const FORMAT_VERSION = 1;
@@ -26,7 +27,93 @@ export function validateEntry(entry, categories) {
 
 // 注意（エラーではない）: 1文字の語は他の語の一部として誤ってヒットしやすい
 export function warningsFor(entry) {
-  return entry?.word?.trim().length === 1 ? ["1文字の語は、他の語の一部として誤ってヒットしやすくなります"] : [];
+  const word = entry?.word?.trim() ?? "";
+  const warnings = [];
+  if (word.length === 1) warnings.push("1文字の語は、他の語の一部として誤ってヒットしやすくなります");
+  if (isNegatedForm(word)) warnings.push(NEGATION_ADVICE);
+  return warnings;
+}
+
+export const NEGATION_ADVICE =
+  "否定（〜ない）は自動で判定されます。ふつうは肯定の形で登録してください（例:「美味しくない」ではなく「美味し」を＋で登録）。" +
+  "「つまらない」のように、それ自体が一つの語のときは、このままで構いません";
+
+// ===== 登録する語の形の助言 =====
+// エンジンは語を文字列として探すため、「コシがある」で登録すると「コシがあった」「コシがあって」に一致しない。
+// 活用で変わらない部分（語幹）を候補として示す。自動では書き換えない（閲覧者が選ぶ）。
+
+// 否定の形（否定はエンジンが自動で判定するため、通常は肯定の形で登録する）
+const NEGATED_ENDING = /(ない|なかった|なくて|ません|ませんでした)$/;
+// 文末の丁寧語・断定（取り除いてから語幹を探す）
+const COPULA_ENDINGS = ["ませんでした", "でした", "だった", "ました", "です", "ます", "だ"];
+// 「する」の活用（丁寧語より先に取る: リピートします → リピート）
+const SURU_ENDINGS = ["しました", "しません", "します", "した", "して", "する"];
+// 語尾の候補（上から順に試し、残りが2文字以上になる最初のものを使う）
+const STEM_ENDINGS = [
+  ...SURU_ENDINGS,                                // 満足する → 満足
+  "かった", "くて", "く",                         // 美味しかった → 美味し
+  "った", "って", "んだ", "んで", "いた", "いて", "いだ", "いで", "た", "て" // あった → あ、食べた → 食べ
+];
+// 「い」を取らない語: 形容詞ではない語（「い」を取ると別の語に一致してしまう）と、
+// 活用が不規則な「いい」（いい → よかった）
+const NOT_I_ADJECTIVES = ["きれい", "キレイ", "嫌い", "大嫌い", "いい"];
+
+const stripEnding = (word, endings) => {
+  for (const e of endings) {
+    if (word.endsWith(e) && word.length - e.length >= 2) return word.slice(0, -e.length);
+  }
+  return word;
+};
+
+// 否定の形か（例: 美味しくない・使えなかった）
+export function isNegatedForm(word) {
+  return NEGATED_ENDING.test(word?.trim() ?? "");
+}
+
+// 活用で変わらない部分の候補。同じ・2文字未満・否定の形のときは null
+export function suggestStem(word) {
+  const original = word?.trim() ?? "";
+  let w = original.replace(/[。、．，！!？?]+$/, "");
+  if (isNegatedForm(w)) return null;
+  const withoutSuru = stripEnding(w, SURU_ENDINGS);
+  if (withoutSuru !== w) return withoutSuru !== original ? withoutSuru : null;
+  w = stripEnding(w, COPULA_ENDINGS);
+
+  const afterEnding = stripEnding(w, STEM_ENDINGS);
+  if (afterEnding !== w) {
+    w = afterEnding;
+  } else if (/い$/.test(w) && !NOT_I_ADJECTIVES.some((n) => w.endsWith(n)) && w.length >= 3) {
+    w = w.slice(0, -1);                    // 形容詞: 美味しい → 美味し
+  } else if (/[うくぐすつぬぶむる]$/.test(w) && w.length >= 3 && !/^(.+)\1$/.test(w)) {
+    w = w.slice(0, -1);                    // 動詞: コシがある → コシがあ（「ぷるぷる」のような繰り返しの語は除く）
+  }
+  return w !== original && w.length >= 2 ? w : null;
+}
+
+// ===== 入力中の文で、その語がどう扱われるか（追加する前に確かめる） =====
+// 戻り値の status:
+//   counted  … 判定に使われる（polarity: この文での値、negated: 否定されたか）
+//   skipped  … 見つかるが数えない（reason・marker は analyzeText の skippedWords と同じ）
+//   covered  … 文中にあるが、より長い辞書の語の一部として扱われ、使われない（by: その語）
+//   absent   … この文には含まれない
+// 文が空、または語が空のときは null
+export function previewEntry(entry, text, config, entries = [], options = {}) {
+  const word = entry?.word?.trim();
+  if (!word || !text?.trim() || !config) return null;
+  if (!text.includes(word)) return { status: "absent" };
+
+  const p = entry.polarity;
+  const polarity = typeof p === "number" && Number.isFinite(p) && p !== 0 ? p : 1;
+  const candidate = { word, polarity, category: entry.category ?? USER_CATEGORY };
+  const others = (entries ?? []).filter((e) => e.word !== word);
+  const r = analyzeText(text, mergeUserDictionary(config, [...others, candidate]), options);
+
+  const m = r.matchedWords.find((x) => x.word === word);
+  if (m) return { status: "counted", polarity: m.polarity, negated: m.negated };
+  const s = r.skippedWords.find((x) => x.word === word);
+  if (s) return { status: "skipped", reason: s.reason, marker: s.marker };
+  const longer = [...r.matchedWords, ...r.skippedWords].find((x) => x.word.length > word.length && x.word.includes(word));
+  return { status: "covered", by: longer?.word ?? null };
 }
 
 // 追加先に選べるカテゴリ: レビュー観点 ＋ ユーザー辞書
