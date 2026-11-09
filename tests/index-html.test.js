@@ -79,3 +79,52 @@ test("入力欄は 16px 以上（iPhone の Safari が入力時に拡大しな�
   assert.ok(size >= 16, `textarea の font-size が ${size}px です`);
   assert.match(html, /@media \(pointer: coarse\)\s*\{\s*\.user-dict-form input, \.user-dict-form select \{ font-size: 16px; \}/);
 });
+
+// ===== 色のコントラスト（WCAG AA: 文字 4.5:1 以上） =====
+
+const hexOf = (block, prop) => {
+  const v = block.match(new RegExp(`(?:^|[;\\s{])${prop}:\\s*([^;]+);`))?.[1]?.trim();
+  if (!v) return null;
+  if (v === "white") return "#ffffff";
+  const m = v.match(/#([0-9a-f]{3}|[0-9a-f]{6})\b/i);
+  if (!m) return null;
+  return "#" + (m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1]).toLowerCase();
+};
+const luminance = (hex) => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a, b) => {
+  const [x, y] = [luminance(a), luminance(b)].sort((m, n) => n - m);
+  return (x + 0.05) / (y + 0.05);
+};
+
+test("文字色と背景色のコントラストが 4.5:1 以上", () => {
+  // [文字色のブロック, 背景色のブロック（null は白いカード）]
+  const pairs = [
+    [".muted"], [".footer"], [".morph-status"], [".examples-label"], [".shortcut-hint"], [".score-line"], [".tagline"],
+    [".subtitle"], [".input-error"], [".pos-text"], [".neg-text"],
+    ["button.primary", "button.primary"], ["button.primary", "button.primary:hover"], ["button.primary", "button.primary:disabled"],
+    [".positive", ".positive"], [".negative", ".negative"], [".neutral", ".neutral"], [".abstain", ".abstain"],
+    [".badge", ".badge"], [".stale-notice", ".stale-notice"], [".load-error", ".load-error"], [".chip", ".chip"]
+  ];
+  for (const [fgSel, bgSel] of pairs) {
+    const fg = hexOf(cssBlock(fgSel), "color");
+    const bg = bgSel ? hexOf(cssBlock(bgSel), "background") : "#ffffff";
+    assert.ok(fg && bg, `${fgSel} / ${bgSel} の色を読めません`);
+    const ratio = contrast(fg, bg);
+    assert.ok(ratio >= 4.5, `${fgSel}（${fg}）on ${bgSel ?? "白"}（${bg}）: ${ratio.toFixed(2)}:1`);
+  }
+});
+
+test("前の文の結果は、透明度ではなく色を抜いて区別する（文字のコントラストを下げない）", () => {
+  const block = cssBlock(".results.stale");
+  assert.match(block, /grayscale/);
+  assert.doesNotMatch(block, /opacity/);
+});
+
+test("スコアの表示（span.score-chip）には、押せるような hover の変化をつけない", () => {
+  assert.doesNotMatch(html, /\n\s*\.chip:hover\s*\{/);
+  assert.match(html, /button\.chip:hover\s*\{/);
+});

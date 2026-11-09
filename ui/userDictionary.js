@@ -160,6 +160,31 @@ export function upsertEntry(entries, entry) {
   return [...rest, clean];
 }
 
+// 読み込んだ語を登録済みの語に重ねる。上限（maxEntries）を超える新しい語は取り込まない。
+// 戻り値: entries（重ねた結果）、added（新しく追加）、updated（登録済みの語を置き換え）、overLimit（上限のため取り込めなかった）
+export function mergeImported(existing, imported) {
+  let entries = [...(existing ?? [])];
+  let added = 0, updated = 0, overLimit = 0;
+  for (const e of imported ?? []) {
+    const exists = entries.some((x) => x.word === e.word.trim());
+    if (!exists && entries.length >= LIMITS.maxEntries) { overLimit++; continue; }
+    entries = upsertEntry(entries, e);
+    exists ? updated++ : added++;
+  }
+  return { entries, added, updated, overLimit };
+}
+
+// 読み込みの結果を伝える文
+export function importMessage({ added, updated, overLimit }, rejected = 0) {
+  const parts = [];
+  if (added) parts.push(`${added} 語を追加`);
+  if (updated) parts.push(`${updated} 語を更新`);
+  let text = parts.length ? `${parts.join("・")}しました` : "追加・更新した語はありません";
+  if (overLimit) text += `。上限（${LIMITS.maxEntries} 語）のため ${overLimit} 語は読み込めませんでした`;
+  if (rejected) text += `。${rejected} 件は不正なため除外しました`;
+  return text;
+}
+
 export function removeEntry(entries, word) {
   return entries.filter((e) => e.word !== word);
 }
