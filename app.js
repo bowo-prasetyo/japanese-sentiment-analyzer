@@ -319,7 +319,7 @@ const AdvancedSettings = {
       </div>
       <p class="muted">
         文を単語に分けて、語の区切りと否定をより正確に見分けます。
-        いまの辞書では、判定の精度はほとんど変わりません（ベンチマークの結果は README を参照）。
+        いまの辞書では、判定の精度はほとんど変わりません（<a href="https://github.com/bowo-prasetyo/japanese-sentiment-analyzer/blob/main/docs/evaluation.md#形態素解析の効果">評価の結果</a>）。
         設定はこのブラウザに保存されます。
       </p>
     </details>
