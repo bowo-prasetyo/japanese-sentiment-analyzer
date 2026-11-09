@@ -3,7 +3,9 @@
 このプロジェクトの主な変更を記録します。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) に沿い、
 バージョン番号は [セマンティック バージョニング](https://semver.org/lang/ja/) に従います。
 
-* **v0.16.0 が最初の公開リリース**です。それより前のバージョンは開発中の版で、タグやリリースはありません。
+* **v0.1.0〜v0.3.0** は 2026年5月に GitHub Release として公開しました。
+* **v0.4.0〜v0.15.0** は開発中の版で、タグやリリースはありません。これらの変更はすべて **v0.16.0** のリリースに含まれます。
+  v0.16.0 は v0.3.0 以来のリリースで、**Tenbin（天秤）** としての最初のリリースです。
 * 各バージョンには、そのバージョン番号に上げた PR **までに** マージされた変更をまとめています
   （たとえば #14・#15 は `package.json` が 0.14.0 のままマージされたため、それを含む最初の版である 0.15.0 に記載）。
 * 精度の数値の測り方と、バージョンごとの記録は [評価](docs/evaluation.md) を見てください。
@@ -13,7 +15,8 @@
 
 ## [0.16.0] - 2026-11-09
 
-最初の公開リリース。
+v0.3.0 以来のリリース（v0.4.0〜v0.15.0 の変更をすべて含む）。Tenbin（天秤）としての最初のリリース。
+擬似API の出力が v0.3.0 から変わっています（[リリースノート](docs/releases/v0.16.0.md#v030-から使っている場合)）。
 
 ### 追加
 - **まとめて分析**（`#/bulk`）: 複数のレビューを1件ずつ分析して集計する画面。貼り付け（1行1件・空行区切り）や
@@ -122,6 +125,22 @@
 ### 修正
 - 結果の色が常に中立になる問題、「精神」の中の「神」、否定の範囲など（[#1]）
 
+## [0.3.0] - 2026-05-01
+
+### 追加
+- 否定表現（「嬉しくない」→ ネガティブ）と強調語（「とても」でスコアを増幅）
+- ヒット単語に否定（negated）と強調倍率（multiplier）を表示
+
+## [0.2.0] - 2026-05-01
+
+### 追加
+- カテゴリ別スコア（感情の内訳）
+
+## [0.1.0] - 2026-05-01
+
+### 追加
+- 最初のリリース: ルールベースの感情分析エンジン、Vue 3 の画面、擬似API
+
 [Unreleased]: https://github.com/bowo-prasetyo/japanese-sentiment-analyzer/compare/v0.16.0...HEAD
 [0.16.0]: https://github.com/bowo-prasetyo/japanese-sentiment-analyzer/releases/tag/v0.16.0
 [0.15.0]: https://github.com/bowo-prasetyo/japanese-sentiment-analyzer/pull/23
@@ -136,6 +155,9 @@
 [0.6.0]: https://github.com/bowo-prasetyo/japanese-sentiment-analyzer/pull/4
 [0.5.0]: https://github.com/bowo-prasetyo/japanese-sentiment-analyzer/pull/3
 [0.4.0]: https://github.com/bowo-prasetyo/japanese-sentiment-analyzer/pull/1
+[0.3.0]: https://github.com/bowo-prasetyo/japanese-sentiment-analyzer/releases/tag/v0.3.0
+[0.2.0]: https://github.com/bowo-prasetyo/japanese-sentiment-analyzer/releases/tag/v0.2.0
+[0.1.0]: https://github.com/bowo-prasetyo/japanese-sentiment-analyzer/releases/tag/v0.1.0
 [#1]: https://github.com/bowo-prasetyo/japanese-sentiment-analyzer/pull/1
 [#2]: https://github.com/bowo-prasetyo/japanese-sentiment-analyzer/pull/2
 [#3]: https://github.com/bowo-prasetyo/japanese-sentiment-analyzer/pull/3
