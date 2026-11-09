@@ -3,7 +3,7 @@ import { evaluate, LABELS } from "./engine/evaluator.js";
 import { displayLabel, displayResult, abstainExplanation, skipReasonText, isBlankInput } from "./ui/labels.js";
 import {
   USER_CATEGORY, LIMITS, validateEntry, warningsFor, selectableCategories, mergeUserDictionary,
-  suggestStem, isNegatedForm, previewEntry, NEGATION_ADVICE, mergeImported, importMessage,
+  suggestStem, isNegatedForm, previewEntry, NEGATION_ADVICE, mergeImported, importMessage, restoreEntry,
   upsertEntry, removeEntry, serialize, parseImport, loadEntries, saveEntries
 } from "./ui/userDictionary.js";
 import { splitCategoryScores, formatScore, scoreClass } from "./ui/breakdown.js";
@@ -167,7 +167,10 @@ const UserDictionaryPanel = {
       <p class="muted">極性: 肯定は 0.5〜1.0、否定は −0.5〜−1.0 が目安（範囲 {{ limits.minPolarity }}〜{{ limits.maxPolarity }}）。</p>
       <ul v-if="errors.length" class="form-errors"><li v-for="e in errors" :key="e">{{ e }}</li></ul>
       <ul v-if="warnings.length" class="form-warnings"><li v-for="w in warnings" :key="w">{{ w }}</li></ul>
-      <p v-if="message" class="muted">{{ message }}</p>
+      <p v-if="message" class="muted dict-message" role="status">
+        {{ message }}
+        <button v-if="lastRemoved" type="button" class="small" @click="undoRemove">元に戻す</button>
+      </p>
 
       <table v-if="dict.entries.length" class="user-dict-table">
         <tr><th>語</th><th>極性</th><th>カテゴリ</th><th><span class="visually-hidden">操作</span></th></tr>
@@ -191,7 +194,9 @@ const UserDictionaryPanel = {
   // text: 分析パネルの入力中の文（追加する前に、その文で一致するかを確かめる）
   props: { text: { type: String, default: "" } },
   data() {
-    return { dict: userDict, limits: LIMITS, word: "", polarity: 0.8, category: USER_CATEGORY, errors: [], warnings: [], message: "", open: false, negationAdvice: NEGATION_ADVICE };
+    return { dict: userDict, limits: LIMITS, word: "", polarity: 0.8, category: USER_CATEGORY, errors: [], warnings: [], message: "", open: false, negationAdvice: NEGATION_ADVICE,
+      // 直前に削除した語（「元に戻す」用）。次の追加・読み込み・削除で消える
+      lastRemoved: null };
   },
   computed: {
     trimmedWord() {
@@ -232,6 +237,7 @@ const UserDictionaryPanel = {
       this.errors = validateEntry(entry, this.dict.categories);
       this.warnings = this.errors.length ? [] : warningsFor(entry);
       this.message = "";
+      this.lastRemoved = null;
       if (this.errors.length) return;
       try {
         const saved = setUserEntries(upsertEntry(this.dict.entries, entry));
@@ -243,9 +249,23 @@ const UserDictionaryPanel = {
       }
     },
     remove(word) {
+      const position = this.dict.entries.findIndex((e) => e.word === word);
+      if (position === -1) return;
+      this.lastRemoved = { entry: this.dict.entries[position], position };
       setUserEntries(removeEntry(this.dict.entries, word));
       this.errors = [];
-      this.message = `「${word}」を削除しました`;
+      this.message = `「${word}」を削除しました。`;
+    },
+    undoRemove() {
+      const { entry, position } = this.lastRemoved ?? {};
+      const restored = restoreEntry(this.dict.entries, entry, position);
+      this.lastRemoved = null;
+      if (!restored) {
+        this.message = `「${entry?.word}」は元に戻せませんでした（同じ語がすでにあるか、上限に達しています）`;
+        return;
+      }
+      setUserEntries(restored);
+      this.message = `「${entry.word}」を元に戻しました`;
     },
     exportJson() {
       const url = URL.createObjectURL(new Blob([serialize(this.dict.entries)], { type: "application/json" }));
@@ -261,6 +281,7 @@ const UserDictionaryPanel = {
       if (!file) return;
       try {
         const { entries, rejected } = parseImport(await file.text(), this.dict.categories);
+        this.lastRemoved = null;
         const merged = mergeImported(this.dict.entries, entries);
         setUserEntries(merged.entries);
         this.errors = [];
@@ -305,13 +326,6 @@ const AnalysisPanel = {
       <div v-if="appState.status === 'failed'" class="load-error" role="alert">
         <p>辞書（感情を表す語の一覧）を読み込めませんでした。通信状況を確認して、もう一度お試しください。</p>
         <button type="button" class="small" @click="retryConfig">再読み込み</button>
-      </div>
-      <div class="morph-toggle">
-        <label>
-          <input type="checkbox" :checked="morph.status !== 'off'" @change="toggleMorph($event.target.checked)">
-          形態素解析を使う（辞書 約18MB をダウンロード）
-        </label>
-        <span :class="['morph-status', morph.status]">{{ morphLabels[morph.status] }}</span>
       </div>
 
       <!-- 判定を読み上げる（結果のブロックは毎回作り直されるため、常にある領域で知らせる） -->
@@ -417,6 +431,23 @@ const AnalysisPanel = {
       </div>
 
       <user-dictionary-panel ref="userDictionary" :text="text"></user-dictionary-panel>
+
+      <!-- 詳細設定: 形態素解析（ふだんは使わなくてよいので、閉じておく。オンのときは見出しに状態を出す） -->
+      <details class="advanced">
+        <summary>詳細設定<span class="advanced-state">（形態素解析: {{ morphSummary }}）</span></summary>
+        <div class="morph-toggle">
+          <label>
+            <input type="checkbox" :checked="morph.status !== 'off'" @change="toggleMorph($event.target.checked)">
+            形態素解析を使う（辞書 約18MB をダウンロード）
+          </label>
+          <span :class="['morph-status', morph.status]" role="status">{{ morphLabels[morph.status] }}</span>
+        </div>
+        <p class="muted">
+          文を単語に分けて、語の区切りと否定をより正確に見分けます。
+          いまの辞書では、判定の精度はほとんど変わりません（ベンチマークの結果は README を参照）。
+          設定はこのブラウザに保存されます。
+        </p>
+      </details>
     </div>
   `,
   components: { UserDictionaryPanel },
@@ -433,6 +464,9 @@ const AnalysisPanel = {
     },
     abstain() {
       return abstainExplanation(this.r);
+    },
+    morphSummary() {
+      return { off: "オフ", loading: "読み込み中", ready: "オン", failed: "読み込めませんでした" }[this.morph.status];
     },
     meter() {
       return meterPosition(this.r?.normalizedScore, this.r?.threshold ?? 0.5);
@@ -575,9 +609,12 @@ const Dev = {
         <p class="muted">固定ブラインドベンチマーク（b1）はここには表示しません（npm run bench で集計のみ）。
           テスト評価は組み込み辞書だけで行います（ユーザー辞書は使いません）。
           形態素解析: {{ morph.status === "ready" ? "有効" : "無効（文字列モード）" }}</p>
-        <button v-for="(s, key) in testsets" :key="key" class="primary" @click="runEvaluation(key)">
-          テスト評価（{{ s.name }}）
-        </button>
+        <div class="eval-buttons">
+          <button v-for="(s, key) in testsets" :key="key" type="button" class="secondary"
+                  :disabled="running" :aria-busy="running && runningSet === key ? 'true' : null" @click="runEvaluation(key)">
+            {{ running && runningSet === key ? "評価中…" : "テスト評価（" + s.name + "）" }}
+          </button>
+        </div>
         <p v-if="evaluationError" class="load-error" role="alert">{{ evaluationError }}</p>
       </section>
 
@@ -624,7 +661,7 @@ const Dev = {
     </main>
   `,
   data() {
-    return { evaluation: null, evaluationSet: "", evaluationError: "", testsets: TESTSETS, testsetData: {}, labels: LABELS, morph };
+    return { evaluation: null, evaluationSet: "", evaluationError: "", running: false, runningSet: "", testsets: TESTSETS, testsetData: {}, labels: LABELS, morph };
   },
   methods: {
     display: displayLabel,
@@ -633,6 +670,10 @@ const Dev = {
     },
     async runEvaluation(key) {
       this.evaluationError = "";
+      this.running = true;
+      this.runningSet = key;
+      // ボタンの「評価中…」を描画してから、時間のかかる評価を始める
+      await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
       try {
         const config = await loadConfig();
         if (!this.testsetData[key]) {
@@ -644,6 +685,9 @@ const Dev = {
         this.evaluation = evaluate(this.testsetData[key], config, { tokenizer: activeTokenizer() });
       } catch (err) {
         this.evaluationError = `${TESTSETS[key].name}を読み込めませんでした（${err.message}）。もう一度お試しください。`;
+      } finally {
+        this.running = false;
+        this.runningSet = "";
       }
     }
   }
@@ -651,13 +695,18 @@ const Dev = {
 
 // Router
 const routes = [
-  { path: "/", component: Home },
-  { path: "/dev", component: Dev }
+  { path: "/", component: Home, meta: { title: "Tenbin（天秤）— 日本語レビュー感情分析" } },
+  { path: "/dev", component: Dev, meta: { title: "開発者向け（評価・デバッグ）— Tenbin（天秤）" } }
 ];
 
 const router = VueRouter.createRouter({
   history: VueRouter.createWebHashHistory(),
   routes
+});
+
+// 画面ごとにブラウザのタブの題名を変える
+router.afterEach((to) => {
+  if (to.meta?.title) document.title = to.meta.title;
 });
 
 // #app の中身（起動前の「読み込み中…」）は、このテンプレートで置き換える

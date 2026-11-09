@@ -189,6 +189,15 @@ export function removeEntry(entries, word) {
   return entries.filter((e) => e.word !== word);
 }
 
+// 削除を元に戻す: 削除した語を、元の位置（position）に戻す。新しい配列を返す。
+// 戻せないとき（同じ語がすでにある・上限に達している）は null
+export function restoreEntry(entries, entry, position) {
+  if (!entry || entries.some((e) => e.word === entry.word)) return null;
+  if (entries.length >= LIMITS.maxEntries) return null;
+  const at = Math.max(0, Math.min(Number.isInteger(position) ? position : entries.length, entries.length));
+  return [...entries.slice(0, at), entry, ...entries.slice(at)];
+}
+
 // 書き出し・読み込み（JSON）
 export function serialize(entries) {
   return JSON.stringify({ format: "japanese-sentiment-analyzer/user-dictionary", version: FORMAT_VERSION, entries }, null, 2);

@@ -21,3 +21,17 @@ test("判定を読み上げる領域は、結果の有無にかかわらず常�
 test("表の見出しは空にしない（削除の列）", () => {
   assert.doesNotMatch(app, /<th>語<\/th><th>極性<\/th><th>カテゴリ<\/th><th><\/th>/);
 });
+
+test("形態素解析は「詳細設定」の中にあり、見出しに状態を出す", () => {
+  const details = app.match(/<details class="advanced">([\s\S]*?)<\/details>/)?.[1] ?? "";
+  assert.match(details, /形態素解析を使う/);
+  assert.match(details, /<summary>詳細設定[^<]*<span class="advanced-state">（形態素解析: \{\{ morphSummary \}\}）/);
+  assert.equal((app.match(/形態素解析を使う/g) ?? []).length, 1, "詳細設定の外にも形態素解析の切り替えがあります");
+});
+
+test("開発者向け画面: 評価ボタンは控えめ（primary ではない）で、画面ごとにタブの題名を変える", () => {
+  assert.match(app, /v-for="\(s, key\) in testsets"[^>]*class="secondary"/);
+  assert.doesNotMatch(app, /v-for="\(s, key\) in testsets"[^>]*class="primary"/);
+  assert.match(app, /router\.afterEach/);
+  assert.match(app, /path: "\/dev"[^\n]*meta: \{ title:/);
+});
