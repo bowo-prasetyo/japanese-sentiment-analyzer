@@ -7,6 +7,11 @@ import {
   upsertEntry, removeEntry, serialize, parseImport, loadEntries, saveEntries
 } from "./ui/userDictionary.js";
 import { splitCategoryScores, formatScore, scoreClass } from "./ui/breakdown.js";
+import { isAnalyzeShortcut, shortcutLabel, needsScrollToResult } from "./ui/interaction.js";
+
+// Ctrl+Enter / ⌘+Enter の表示（userAgentData がなければ従来の platform）
+const SHORTCUT_LABEL = shortcutLabel(navigator.userAgentData?.platform || navigator.platform || "");
+const prefersReducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
 // ===== 感情辞書（data/config.json）: 一度だけ読み込み、画面間で共有する =====
 // status: "loading" / "ready" / "failed"（失敗したら「再読み込み」で再試行できる）
@@ -282,6 +287,7 @@ const AnalysisPanel = {
   template: `
     <div>
       <textarea ref="input" v-model="text" rows="4" placeholder="レビューの文を入力..." aria-label="レビューの文"
+                aria-keyshortcuts="Control+Enter Meta+Enter" @keydown="onKeydown"
                 :aria-invalid="inputError ? 'true' : null" :aria-describedby="inputError ? 'input-error' : null"></textarea>
       <p v-if="inputError" id="input-error" class="input-error" role="alert">{{ inputError }}</p>
 
@@ -293,6 +299,7 @@ const AnalysisPanel = {
       <button class="primary" type="button" @click="analyze" :disabled="appState.status !== 'ready'">
         {{ appState.status === "loading" ? "辞書を読み込み中…" : "分析" }}
       </button>
+      <p class="shortcut-hint">入力欄で {{ shortcutLabel }} を押しても分析できます</p>
       <div v-if="appState.status === 'failed'" class="load-error" role="alert">
         <p>辞書（感情を表す語の一覧）を読み込めませんでした。通信状況を確認して、もう一度お試しください。</p>
         <button type="button" class="small" @click="retryConfig">再読み込み</button>
@@ -305,7 +312,10 @@ const AnalysisPanel = {
         <span :class="['morph-status', morph.status]">{{ morphLabels[morph.status] }}</span>
       </div>
 
-      <template v-if="r">
+      <p v-if="stale" class="stale-notice" role="status">
+        入力が変わりました。下の結果は前の文のものです。「分析」を押すと結果を更新します。
+      </p>
+      <div v-if="r" ref="results" :class="['results', { stale }]">
         <div :class="['result', label.cssClass]">{{ label.text }}</div>
         <p v-if="abstain" class="score-line">
           <template v-if="abstain.kind === 'contrast'">
@@ -376,14 +386,15 @@ const AnalysisPanel = {
           <p>debug: {{ r.debugLabel }} / 形態素解析: {{ r.morphology ? "有効" : "無効" }} / 合計 {{ r.score.toFixed(2) }} ÷ √ヒット数 {{ r.hits }}</p>
           <pre>{{ JSON.stringify(r, null, 2) }}</pre>
         </section>
-      </template>
+      </div>
 
       <user-dictionary-panel ref="userDictionary" :text="text"></user-dictionary-panel>
     </div>
   `,
   components: { UserDictionaryPanel },
   data() {
-    return { text: "", r: null, inputError: "", examples: EXAMPLES, morph, morphLabels: MORPH_LABELS, userDict, appState };
+    // analyzedText: 表示中の結果の元になった文（入力欄が変わっても、結果はこの文のもの）
+    return { text: "", analyzedText: "", r: null, inputError: "", examples: EXAMPLES, morph, morphLabels: MORPH_LABELS, userDict, appState, shortcutLabel: SHORTCUT_LABEL };
   },
   computed: {
     config() {
@@ -394,6 +405,10 @@ const AnalysisPanel = {
     },
     abstain() {
       return abstainExplanation(this.r);
+    },
+    // 結果を表示したあとに入力欄が変わった（結果は前の文のもの）
+    stale() {
+      return Boolean(this.r) && this.text !== this.analyzedText;
     },
     // 組み込み辞書 ＋ ユーザー辞書
     effectiveConfig() {
@@ -424,7 +439,7 @@ const AnalysisPanel = {
     formatScore,
     scoreClass,
     skipReasonText,
-    // 「分析」ボタン: 空の入力は判定せず、入力を促す（「判定できません」とは表示しない）
+    // 「分析」ボタン・Ctrl+Enter・例文: 空の入力は判定せず、入力を促す（「判定できません」とは表示しない）
     analyze() {
       if (!this.config) return;
       if (isBlankInput(this.text)) {
@@ -434,15 +449,29 @@ const AnalysisPanel = {
         return;
       }
       this.inputError = "";
-      this.runAnalysis();
+      this.runAnalysis(this.text);
+      this.$nextTick(() => this.scrollToResult());
     },
-    // 設定が変わったときの再分析（結果を表示中で、入力が空でないときだけ。フォーカスは動かさない）
+    // 設定（ユーザー辞書・形態素解析）が変わったときの再分析。
+    // 表示中の結果の元の文で分析し直す（入力欄を書き換え中でも、結果と元の文がずれないように）。フォーカスもスクロールも動かさない
     reanalyze() {
-      if (this.r && this.config && !isBlankInput(this.text)) this.runAnalysis();
+      if (this.r && this.config) this.runAnalysis(this.analyzedText);
     },
-    runAnalysis() {
-      const r = analyzeText(this.text, this.effectiveConfig, { tokenizer: activeTokenizer() });
+    runAnalysis(text) {
+      const r = analyzeText(text, this.effectiveConfig, { tokenizer: activeTokenizer() });
       this.r = { ...r, skippedWords: r.skippedWords ?? [] };
+      this.analyzedText = text;
+    },
+    onKeydown(event) {
+      if (!isAnalyzeShortcut(event)) return;
+      event.preventDefault();
+      this.analyze();
+    },
+    // 結果が画面の下の方（スマホなど）にあれば、結果の先頭までスクロールする
+    scrollToResult() {
+      const el = this.$refs.results;
+      if (!el || !needsScrollToResult(el.getBoundingClientRect().top, window.innerHeight)) return;
+      el.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" });
     },
     retryConfig() {
       loadConfig().catch(() => { /* 失敗は appState.status で表示 */ });
