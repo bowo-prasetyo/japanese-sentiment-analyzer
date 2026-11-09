@@ -80,6 +80,12 @@ export function evaluate(testset, config, options = {}) {
     // 判定できた（abstained でない）文の割合と、その中での正解率。
     // macroF1 / accuracy では、判定できなかった文は「中立」と予測したものとして数える
     coverage: safeDiv(results.filter((r) => !r.abstained).length, total),
+    // ポジティブ・ネガティブの文のうち、判定できた割合。
+    // 中立の文は「判定できません」が正しいことも多いため、coverage とは別に、感情のある文だけで測る
+    coverageOnSentiment: safeDiv(
+      results.filter((r) => r.label !== "neutral" && !r.abstained).length,
+      results.filter((r) => r.label !== "neutral").length
+    ),
     accuracyOnDecided: safeDiv(
       results.filter((r) => !r.abstained && r.correct).length,
       results.filter((r) => !r.abstained).length

@@ -1,6 +1,6 @@
 {
   "name": "tenbin",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "private": true,
   "description": "Tenbin: explainable, browser-only, rule-based Japanese review sentiment analyzer",
   "type": "module",
@@ -8,7 +8,8 @@
     "test": "node --test \"tests/**/*.test.js\"",
     "eval": "node scripts/eval.js",
     "check:cdn": "node scripts/check-cdn.js",
-    "bench": "node scripts/benchmark.js"
+    "bench": "node scripts/benchmark.js",
+    "gates": "node scripts/gates.js"
   },
   "license": "MIT",
   "dependencies": {
