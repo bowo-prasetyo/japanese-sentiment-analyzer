@@ -59,3 +59,23 @@ test("必要時に読み込む kuromoji 本体もバージョン固定 + integri
   assert.match(dict.base, /@\d+\.\d+\.\d+\//);
   assert.equal(Object.keys(dict.files).length, 12);
 });
+
+// ===== 表示（文字・スマホ） =====
+
+const cssBlock = (selector) => html.match(new RegExp(`\\n\\s*${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
+
+test("本文の書体: 日本語フォントと総称ファミリー sans-serif を指定している", () => {
+  const family = cssBlock("body").match(/font-family:([^;]*);/)?.[1] ?? "";
+  assert.match(family, /sans-serif\s*$/, "最後に sans-serif がありません（日本語の書体がブラウザ任せになる）");
+  assert.match(family, /Hiragino Sans|Noto Sans JP|Yu Gothic|Meiryo/, "日本語フォントがありません");
+});
+
+test("フォーム部品はページの書体を引き継ぐ", () => {
+  assert.match(cssBlock("button, input, select, textarea"), /font-family:\s*inherit/);
+});
+
+test("入力欄は 16px 以上（iPhone の Safari が入力時に拡大しない）", () => {
+  const size = Number(cssBlock("textarea").match(/font-size:\s*(\d+)px/)?.[1]);
+  assert.ok(size >= 16, `textarea の font-size が ${size}px です`);
+  assert.match(html, /@media \(pointer: coarse\)\s*\{\s*\.user-dict-form input, \.user-dict-form select \{ font-size: 16px; \}/);
+});

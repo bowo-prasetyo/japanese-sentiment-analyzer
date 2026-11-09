@@ -17,8 +17,16 @@
   <style>
     body {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
+      /* 欧文はシステムフォント、和文は各 OS の日本語フォント（文字ごとに前から順に使える書体が選ばれる） */
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                   "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP",
+                   "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
       background: #f5f7fa;
+    }
+
+    /* フォーム部品は既定ではページの書体を引き継がないため、明示する */
+    button, input, select, textarea {
+      font-family: inherit;
     }
 
     #app {
@@ -80,6 +88,9 @@
       border: 1px solid #ccc;
       resize: none;
       box-sizing: border-box;
+      /* 16px 未満だと iPhone の Safari が入力時に画面を拡大する */
+      font-size: 16px;
+      line-height: 1.5;
     }
 
     button.primary {
@@ -242,6 +253,12 @@
     .user-dict-form input[type=number] { width: 70px; }
     .user-dict-form input, .user-dict-form select { padding: 4px 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; }
 
+    /* タッチ端末: 16px 未満の入力欄は iPhone の Safari が入力時に画面を拡大するため、16px にする */
+    @media (pointer: coarse) {
+      .user-dict-form input, .user-dict-form select { font-size: 16px; }
+      .user-dict-form input[type=number] { width: 80px; }
+    }
+
     .dict-advice p { margin: 6px 0; font-size: 13px; }
     .dict-advice .advice { color: #5d4300; background: #fff8e1; border-radius: 6px; padding: 6px 8px; }
     .dict-advice .advice button { margin-left: 4px; }
@@ -316,6 +333,31 @@
     }
 
     .load-error p { margin: 0 0 6px; }
+
+    .shortcut-hint {
+      margin: 4px 0 0;
+      text-align: right;
+      font-size: 12px;
+      color: #666;
+    }
+
+    /* タッチ端末にはキーボードのショートカットがないことが多いため、表示しない */
+    @media (pointer: coarse) {
+      .shortcut-hint { display: none; }
+    }
+
+    /* 結果を表示したあとに入力が変わった: 前の文の結果であることを示す */
+    .stale-notice {
+      margin: 12px 0 0;
+      padding: 6px 10px;
+      border-left: 3px solid #e0c25a;
+      background: #fff8e1;
+      color: #5d4300;
+      font-size: 13px;
+    }
+
+    .results { scroll-margin-top: 12px; }
+    .results.stale { opacity: 0.5; }
 
     .result {
       margin-top: 15px;
