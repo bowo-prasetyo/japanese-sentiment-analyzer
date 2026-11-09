@@ -4,7 +4,8 @@ import { readFileSync } from "node:fs";
 import { analyzeText } from "../engine/analyzer.js";
 import {
   USER_CATEGORY, LIMITS, validateEntry, warningsFor, selectableCategories, mergeUserDictionary,
-  upsertEntry, removeEntry, serialize, parseImport, loadEntries, saveEntries
+  upsertEntry, removeEntry, serialize, parseImport, loadEntries, saveEntries,
+  suggestStem, isNegatedForm, previewEntry, NEGATION_ADVICE
 } from "../ui/userDictionary.js";
 
 const config = JSON.parse(readFileSync(new URL("../data/config.json", import.meta.url), "utf8"));
@@ -109,4 +110,78 @@ test("ブラウザ保存: 読み書きできない環境でも例外を出さな
   const entries = [{ word: "コシがあ", polarity: 0.8, category: "味" }];
   assert.equal(saveEntries(storage, entries), true);
   assert.deepEqual(loadEntries(storage, categories), entries);
+});
+
+// ===== 登録する語の形の助言（活用で変わらない部分の候補） =====
+
+test("suggestStem: 活用する語は、変わらない部分を候補にする", () => {
+  const cases = {
+    "コシがある": "コシがあ", "コシがあった": "コシがあ", "コシがあって": "コシがあ",
+    "美味しい": "美味し", "美味しかった": "美味し", "美味しく": "美味し", "美味しいです": "美味し",
+    "使いやすい": "使いやす", "食べた": "食べ", "気に入った": "気に入", "役立つ": "役立", "泣ける": "泣け",
+    "満足する": "満足", "満足した": "満足", "リピートします": "リピート", "ホッとする": "ホッと",
+    "最悪だ": "最悪", "最悪です": "最悪", "大満足！": "大満足"
+  };
+  for (const [word, stem] of Object.entries(cases)) assert.equal(suggestStem(word), stem, word);
+});
+
+test("suggestStem: 候補を出さない語（すでに語幹・活用しない・短すぎる・不規則・否定）", () => {
+  for (const word of ["コシがあ", "美味し", "神対応", "サクサク", "もちもち", "ぷるぷる", "きれい", "嫌い",
+                      "香りがいい", "良い", "よく", "書く", "美味しくない", "つまらない", "", "  "]) {
+    assert.equal(suggestStem(word), null, word);
+  }
+});
+
+test("suggestStem の候補は、元の語の活用した形にも一致する", () => {
+  const forms = { "コシがある": ["コシがあった", "コシがあって", "コシがあります"], "美味しい": ["美味しかった", "美味しくて", "美味しそう"] };
+  for (const [word, texts] of Object.entries(forms)) {
+    const stem = suggestStem(word);
+    for (const t of texts) {
+      assert.ok(t.includes(stem), `${stem} が ${t} に含まれない`);
+      assert.ok(!t.includes(word) || t === word, `${word} がそのまま ${t} に一致してしまう（テストの前提が誤り）`);
+    }
+  }
+});
+
+test("isNegatedForm と注意: 否定の形には、肯定の形での登録を勧める", () => {
+  assert.equal(isNegatedForm("美味しくない"), true);
+  assert.equal(isNegatedForm("使えなかった"), true);
+  assert.equal(isNegatedForm("おすすめしません"), true);
+  assert.equal(isNegatedForm("美味しい"), false);
+  assert.ok(warningsFor({ word: "美味しくない" }).includes(NEGATION_ADVICE));
+  assert.ok(!warningsFor({ word: "美味しい" }).includes(NEGATION_ADVICE));
+});
+
+// ===== 追加する前に、入力中の文で一致するかを確かめる =====
+
+const preview = (word, text, polarity = 0.8, entries = []) =>
+  previewEntry({ word, polarity, category: "味" }, text, config, entries);
+
+test("previewEntry: 判定に使われる（否定も反映）", () => {
+  assert.deepEqual(preview("コシがあ", "麺はコシがあって美味しい"), { status: "counted", polarity: 0.8, negated: false });
+  assert.deepEqual(preview("コシがあ", "麺にコシがあまりない"), { status: "counted", polarity: -0.8, negated: true });
+});
+
+test("previewEntry: 活用した形には一致しない語は absent（「コシがある」と「コシがあって」）", () => {
+  assert.deepEqual(preview("コシがある", "麺はコシがあって美味しい"), { status: "absent" });
+});
+
+test("previewEntry: 見つかるが数えない語は skipped（逆接の前・条件）", () => {
+  assert.deepEqual(preview("コシがあ", "コシがある麺だけど、量が少ない"), { status: "skipped", reason: "contrast", marker: "けど" });
+  assert.equal(preview("コシがあ", "コシがあった場合は交換します").reason, "condition");
+});
+
+test("previewEntry: より長い辞書の語の内側にある語は covered", () => {
+  assert.deepEqual(preview("美味", "とても美味しい"), { status: "covered", by: "美味し" });
+});
+
+test("previewEntry: 極性が未入力でも一致は確かめられる。文や語が空なら null", () => {
+  assert.equal(preview("コシがあ", "コシがあった", NaN).status, "counted");
+  assert.equal(preview("コシがあ", ""), null);
+  assert.equal(preview("", "コシがあった"), null);
+});
+
+test("previewEntry: 登録済みの同じ語は、入力中の極性で置き換えて確かめる", () => {
+  const entries = [{ word: "コシがあ", polarity: -1, category: "味" }];
+  assert.equal(preview("コシがあ", "コシがあった", 0.8, entries).polarity, 0.8);
 });
