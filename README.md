@@ -88,7 +88,7 @@ The documentation is in Japanese.
 | [評価](docs/evaluation.md) | 精度を確かめる人 | 指標・テストセット・ベンチマークと、その履歴 |
 | [擬似API](docs/pseudo-api.md) | 開発者 | URL で分析結果の JSON を表示するページ |
 | [開発への参加](CONTRIBUTING.md) | 開発者 | 手元での動かし方・テスト・CI・依存ライブラリの更新・ディレクトリ構成・リリース手順 |
-| [変更履歴](CHANGELOG.md) | すべての人 | バージョンごとの変更（v0.16.0 が最初の公開リリース） |
+| [変更履歴](CHANGELOG.md) | すべての人 | バージョンごとの変更（v0.3.0 以来のリリースは v0.16.0） |
 
 ---
 

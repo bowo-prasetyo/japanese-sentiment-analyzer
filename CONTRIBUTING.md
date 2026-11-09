@@ -190,7 +190,7 @@ project/
 
 ## リリース手順
 
-公開リリースは GitHub Release として出します。最初の公開リリースは v0.16.0 です。
+公開リリースは GitHub Release として出します（v0.1.0〜v0.3.0、v0.16.0〜。v0.4.0〜v0.15.0 はタグなし）。
 
 1. **PR で準備する**
    * `package.json` の `version` を上げ、`npm install --package-lock-only` で `package-lock.json` も合わせる
