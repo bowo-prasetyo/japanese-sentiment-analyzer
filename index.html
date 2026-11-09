@@ -386,6 +386,86 @@
       border-radius: 4px;
     }
 
+    /* ===== 判定スコアのメーター ===== */
+    .meter { margin: 10px 4px 0; }
+
+    .meter-track {
+      position: relative;
+      height: 10px;
+      margin: 6px 0;
+    }
+
+    .meter-zone {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+    }
+
+    .meter-zone.negative { background: #ffcdd2; border-radius: 5px 0 0 5px; }
+    .meter-zone.neutral  { background: #e0e0e0; }
+    .meter-zone.positive { background: #c8e6c9; border-radius: 0 5px 5px 0; }
+
+    /* 印: 中央を値の位置に合わせる。色は判定と同じ（形でも分かるよう、帯より高い濃い棒） */
+    .meter-marker {
+      position: absolute;
+      top: -5px;
+      width: 6px;
+      height: 20px;
+      border-radius: 3px;
+      background: #37474f;
+      transform: translateX(-50%);
+      box-shadow: 0 0 0 2px #fff;
+    }
+
+    .meter-marker.positive { background: #2e7d32; }
+    .meter-marker.negative { background: #c62828; }
+    .meter-marker.clamped  { width: 10px; border-radius: 2px; }
+
+    .meter-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .meter-note {
+      margin: 2px 0 0;
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+    }
+
+    /* ===== 文中の語の印（色だけでなく、下線の形でも区別する） ===== */
+    .highlighted {
+      margin: 0;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: #fafafa;
+      font-size: 15px;
+      line-height: 1.9;
+      color: #222;
+      word-break: break-all;
+    }
+
+    mark.hl {
+      color: #222;
+      padding: 0 1px;
+      border-radius: 2px;
+    }
+
+    mark.hl.positive { background: #e8f5e9; border-bottom: 2px solid #2e7d32; }
+    mark.hl.negative { background: #ffebee; border-bottom: 3px double #c62828; }
+    mark.hl.zero     { background: #eceff1; border-bottom: 2px solid #78909c; }
+    mark.hl.skipped  { background: transparent; color: #666; border-bottom: 2px dotted #888; }
+
+    .hl-legend {
+      margin: 6px 0 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 12px;
+      font-size: 12px;
+    }
+
     .result {
       margin-top: 15px;
       padding: 10px;

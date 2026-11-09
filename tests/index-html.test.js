@@ -107,7 +107,10 @@ test("文字色と背景色のコントラストが 4.5:1 以上", () => {
     [".subtitle"], [".input-error"], [".pos-text"], [".neg-text"],
     ["button.primary", "button.primary"], ["button.primary", "button.primary:hover"], ["button.primary", "button.primary:disabled"],
     [".positive", ".positive"], [".negative", ".negative"], [".neutral", ".neutral"], [".abstain", ".abstain"],
-    [".badge", ".badge"], [".stale-notice", ".stale-notice"], [".load-error", ".load-error"], [".chip", ".chip"]
+    [".badge", ".badge"], [".stale-notice", ".stale-notice"], [".load-error", ".load-error"], [".chip", ".chip"],
+    // 文中の語の印とメーター
+    [".highlighted", ".highlighted"], ["mark.hl", "mark.hl.positive"], ["mark.hl", "mark.hl.negative"],
+    ["mark.hl", "mark.hl.zero"], ["mark.hl.skipped", ".highlighted"], [".meter-labels"], [".meter-note"]
   ];
   for (const [fgSel, bgSel] of pairs) {
     const fg = hexOf(cssBlock(fgSel), "color");

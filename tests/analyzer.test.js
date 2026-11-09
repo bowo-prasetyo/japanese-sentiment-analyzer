@@ -492,7 +492,9 @@ test("逆接: 前半の語は判定・スコアに影響しない（従来と同
   const afterOnly = analyzeText("、味は美味しい", config);
   assert.equal(r.result, afterOnly.result);
   assert.equal(r.normalizedScore, afterOnly.normalizedScore);
-  assert.deepEqual(r.matchedWords, afterOnly.matchedWords);
+  // 語と値は後半だけを分析したときと同じ。位置（index）だけが、元の文の中の位置にずれる
+  const offset = "見た目は最悪だけど".length;
+  assert.deepEqual(r.matchedWords, afterOnly.matchedWords.map((m) => ({ ...m, index: m.index + offset })));
   assert.deepEqual(r.skippedWords.map((s) => [s.word, s.reason]), [["最悪", "contrast"]]);
 });
 
