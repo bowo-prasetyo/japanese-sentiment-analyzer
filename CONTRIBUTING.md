@@ -12,6 +12,7 @@ Tenbin を手元で動かす方法、テスト、CI、依存ライブラリの�
 * [依存ライブラリの更新](#依存ライブラリの更新)
 * [ディレクトリ構成](#ディレクトリ構成)
 * [ロゴ](#ロゴ)
+* [リリース手順](#リリース手順)
 * [今後の改善](#今後の改善)
 
 ---
@@ -184,6 +185,35 @@ project/
 | `assets/favicon.svg` | ファビコン（ダークモードでは支柱が明るい色に変わる） |
 | `assets/favicon-32.png` | SVG のファビコンに対応しないブラウザ用 |
 | `assets/apple-touch-icon.png` | ホーム画面用（180×180、白背景） |
+
+---
+
+## リリース手順
+
+公開リリースは GitHub Release として出します。最初の公開リリースは v0.16.0 です。
+
+1. **PR で準備する**
+   * `package.json` の `version` を上げ、`npm install --package-lock-only` で `package-lock.json` も合わせる
+   * [CHANGELOG.md](CHANGELOG.md) の `[Unreleased]` の内容を新しいバージョンの見出しの下に移し、日付と比較リンクを足す
+   * エンジンか辞書を変えた場合は、`npm run bench -- --record` でベンチマークの記録を足す（[評価](docs/evaluation.md#記録されたスコア)）
+   * リリースノートを `docs/releases/vX.Y.Z.md` に書く（GitHub Release に貼るため、リンクは `blob/vX.Y.Z/...` の絶対 URL にする）
+2. **PR をマージし、CI が緑であることを確かめる**
+3. **マージコミットにタグを付けて push する**
+
+   ```bash
+   git tag -a vX.Y.Z -m "Tenbin vX.Y.Z"
+   ```
+
+   ```bash
+   git push origin vX.Y.Z
+   ```
+
+4. **GitHub Release を作る**: リポジトリの Releases →「Draft a new release」で `vX.Y.Z` タグを選び、
+   `docs/releases/vX.Y.Z.md` の本文を貼り付けて公開する
+5. **公開版を確かめる**: GitHub Pages の画面に新しい版の変更が出ていること
+
+バージョン番号は [セマンティック バージョニング](https://semver.org/lang/ja/) に従います。
+0.x の間は辞書の形式や判定結果が変わることがあり、その方針はリリースノートの「互換性」に書きます。
 
 ---
 

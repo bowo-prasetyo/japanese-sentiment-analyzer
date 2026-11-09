@@ -22,7 +22,7 @@ test("docs/pseudo-api.md の項目の説明は、レスポンスのすべての�
 });
 
 // ===== 文書の中のリンク: 相対リンクの先のファイルと、#見出し が存在する =====
-const DOCS = ["README.md", "CONTRIBUTING.md", "docs/user-guide.md", "docs/glossary.md", "docs/dictionary.md", "docs/evaluation.md", "docs/pseudo-api.md"];
+const DOCS = ["README.md", "CONTRIBUTING.md", "CHANGELOG.md", "docs/user-guide.md", "docs/glossary.md", "docs/dictionary.md", "docs/evaluation.md", "docs/pseudo-api.md", "docs/releases/v0.16.0.md"];
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
 // GitHub と同じ規則で、見出しからアンカーを作る（小文字にし、記号を除き、空白を - にする）
