@@ -3,7 +3,7 @@ import { evaluate, LABELS } from "./engine/evaluator.js";
 import { displayLabel, displayResult, abstainExplanation, skipReasonText, isBlankInput } from "./ui/labels.js";
 import {
   USER_CATEGORY, LIMITS, validateEntry, warningsFor, selectableCategories, mergeUserDictionary,
-  suggestStem, isNegatedForm, previewEntry, NEGATION_ADVICE,
+  suggestStem, isNegatedForm, previewEntry, NEGATION_ADVICE, mergeImported, importMessage,
   upsertEntry, removeEntry, serialize, parseImport, loadEntries, saveEntries
 } from "./ui/userDictionary.js";
 import { splitCategoryScores, formatScore, scoreClass } from "./ui/breakdown.js";
@@ -166,7 +166,7 @@ const UserDictionaryPanel = {
       <p v-if="message" class="muted">{{ message }}</p>
 
       <table v-if="dict.entries.length" class="user-dict-table">
-        <tr><th>語</th><th>極性</th><th>カテゴリ</th><th></th></tr>
+        <tr><th>語</th><th>極性</th><th>カテゴリ</th><th><span class="visually-hidden">操作</span></th></tr>
         <tr v-for="e in dict.entries" :key="e.word">
           <td>{{ e.word }}</td>
           <td :class="e.polarity > 0 ? 'pos-text' : 'neg-text'">{{ e.polarity > 0 ? "+" : "" }}{{ e.polarity }}</td>
@@ -257,12 +257,10 @@ const UserDictionaryPanel = {
       if (!file) return;
       try {
         const { entries, rejected } = parseImport(await file.text(), this.dict.categories);
-        const merged = entries.reduce((acc, e) => {
-          try { return upsertEntry(acc, e); } catch { return acc; }
-        }, this.dict.entries);
-        setUserEntries(merged);
+        const merged = mergeImported(this.dict.entries, entries);
+        setUserEntries(merged.entries);
         this.errors = [];
-        this.message = `${entries.length} 語を読み込みました` + (rejected ? `（${rejected} 件は不正なため除外）` : "");
+        this.message = importMessage(merged, rejected);
       } catch (err) {
         this.errors = [err.message];
         this.message = "";
@@ -312,6 +310,8 @@ const AnalysisPanel = {
         <span :class="['morph-status', morph.status]">{{ morphLabels[morph.status] }}</span>
       </div>
 
+      <!-- 判定を読み上げる（結果のブロックは毎回作り直されるため、常にある領域で知らせる） -->
+      <p class="visually-hidden" role="status" aria-live="polite">{{ announcement }}</p>
       <p v-if="stale" class="stale-notice" role="status">
         入力が変わりました。下の結果は前の文のものです。「分析」を押すと結果を更新します。
       </p>
@@ -406,6 +406,12 @@ const AnalysisPanel = {
     abstain() {
       return abstainExplanation(this.r);
     },
+    // 読み上げる文: 判定と、判定スコア（判定できないときは、中立ではないこと）
+    announcement() {
+      if (!this.r) return "";
+      if (this.abstain) return "判定できません。中立という判定ではありません。";
+      return `判定: ${this.label.text}。判定スコア ${this.r.normalizedScore.toFixed(2)}。`;
+    },
     // 結果を表示したあとに入力欄が変わった（結果は前の文のもの）
     stale() {
       return Boolean(this.r) && this.text !== this.analyzedText;
@@ -494,7 +500,7 @@ const AnalysisPanel = {
 const Home = {
   components: { AnalysisPanel },
   template: `
-    <div class="card">
+    <main class="card">
       <img class="logo-mark" src="assets/mark.svg" alt="" width="56" height="56">
       <h1>Tenbin（天秤）<span class="subtitle">日本語レビュー感情分析</span></h1>
       <p class="tagline">理由が見える・ブラウザだけで動く</p>
@@ -504,7 +510,7 @@ const Home = {
         ・
         <a href="https://github.com/bowo-prasetyo/japanese-sentiment-analyzer">GitHub</a>
       </footer>
-    </div>
+    </main>
   `
 };
 
@@ -517,7 +523,7 @@ const TESTSETS = {
 const Dev = {
   components: { AnalysisPanel },
   template: `
-    <div class="card">
+    <main class="card">
       <h1>開発者向け</h1>
       <p class="tagline"><router-link to="/">← 一般向け画面に戻る</router-link></p>
 
@@ -574,7 +580,7 @@ const Dev = {
           <li v-for="(r, i) in evaluation.noHitCases.slice(0, 20)" :key="i">{{ r.text }}</li>
         </ul>
       </div>
-    </div>
+    </main>
   `,
   data() {
     return { evaluation: null, evaluationSet: "", evaluationError: "", testsets: TESTSETS, testsetData: {}, labels: LABELS, morph };

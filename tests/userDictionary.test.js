@@ -5,7 +5,7 @@ import { analyzeText } from "../engine/analyzer.js";
 import {
   USER_CATEGORY, LIMITS, validateEntry, warningsFor, selectableCategories, mergeUserDictionary,
   upsertEntry, removeEntry, serialize, parseImport, loadEntries, saveEntries,
-  suggestStem, isNegatedForm, previewEntry, NEGATION_ADVICE
+  suggestStem, isNegatedForm, previewEntry, NEGATION_ADVICE, mergeImported, importMessage
 } from "../ui/userDictionary.js";
 
 const config = JSON.parse(readFileSync(new URL("../data/config.json", import.meta.url), "utf8"));
@@ -184,4 +184,32 @@ test("previewEntry: 極性が未入力でも一致は確かめられる。文や
 test("previewEntry: 登録済みの同じ語は、入力中の極性で置き換えて確かめる", () => {
   const entries = [{ word: "コシがあ", polarity: -1, category: "味" }];
   assert.equal(preview("コシがあ", "コシがあった", 0.8, entries).polarity, 0.8);
+});
+
+// ===== 読み込み（JSON）: 追加・更新・上限を正しく数える =====
+
+const entry = (word, polarity = 1) => ({ word, polarity, category: "味" });
+
+test("mergeImported: 新しい語は追加、登録済みの語は更新として数える", () => {
+  const r = mergeImported([entry("既存", 0.5)], [entry("既存", 1), entry("新語")]);
+  assert.deepEqual([r.added, r.updated, r.overLimit], [1, 1, 0]);
+  assert.deepEqual(r.entries.map((e) => [e.word, e.polarity]), [["既存", 1], ["新語", 1]]);
+});
+
+test("mergeImported: 上限を超える新しい語は取り込まず、その数を返す（更新は上限でも行う）", () => {
+  const full = Array.from({ length: LIMITS.maxEntries }, (_, i) => entry(`語${i}`));
+  const r = mergeImported(full, [entry("語0", -1), entry("新A"), entry("新B")]);
+  assert.deepEqual([r.added, r.updated, r.overLimit], [0, 1, 2]);
+  assert.equal(r.entries.length, LIMITS.maxEntries);
+  assert.equal(r.entries.find((e) => e.word === "語0").polarity, -1);
+});
+
+test("importMessage: 実際に取り込んだ数だけを伝える（以前は読み込んだ件数をそのまま表示していた）", () => {
+  assert.equal(importMessage({ added: 3, updated: 0, overLimit: 0 }), "3 語を追加しました");
+  assert.equal(importMessage({ added: 2, updated: 1, overLimit: 0 }), "2 語を追加・1 語を更新しました");
+  assert.equal(
+    importMessage({ added: 0, updated: 1, overLimit: 2 }, 1),
+    `1 語を更新しました。上限（${LIMITS.maxEntries} 語）のため 2 語は読み込めませんでした。1 件は不正なため除外しました`
+  );
+  assert.equal(importMessage({ added: 0, updated: 0, overLimit: 0 }), "追加・更新した語はありません");
 });
