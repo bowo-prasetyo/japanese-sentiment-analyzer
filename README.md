@@ -112,4 +112,4 @@ MIT License。使用しているライブラリ（Vue・Vue Router・kuromoji.js
 
 ## 🙌 作者
 
-Bowo Prasetyo（開発の支援: [ChatGPT](https://chatgpt.com/)）
+Bowo Prasetyo（開発の支援: [ChatGPT](https://chatgpt.com/), [Claude Code](https://claude.ai/code)）
