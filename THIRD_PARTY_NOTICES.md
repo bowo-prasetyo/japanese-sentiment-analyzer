@@ -1,5 +1,14 @@
 # Third-party notices
 
+## Vue 3.5.44 / Vue Router 4.6.4
+
+Web ページは、次のライブラリを `vendor/` に同梱して読み込みます（配布元と同一のファイル）。
+
+* Vue 3.5.44 — https://github.com/vuejs/core — License: MIT（`vendor/vue@3.5.44/LICENSE`）
+* Vue Router 4.6.4 — https://github.com/vuejs/router — License: MIT（`vendor/vue-router@4.6.4/LICENSE`）
+
+---
+
 このプロジェクトの Web ページは、形態素解析のために次のソフトウェアとデータを CDN（unpkg）から読み込みます。
 Node.js での評価・テストでは npm パッケージとして使用します（`node_modules/` はリポジトリに含めません）。
 

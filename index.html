@@ -6,13 +6,8 @@
   <title>Tenbin（天秤）— 日本語レビュー感情分析</title>
   <meta name="description" content="日本語のレビュー文をポジティブ／ネガティブ／中立に判定し、根拠の語と観点別の評価を示す、ブラウザだけで動くルールベースの感情分析。">
 
-  <!-- Vue（バージョン固定 + SRI。更新手順は README「依存ライブラリの更新」参照） -->
-  <script src="https://unpkg.com/vue@3.5.44/dist/vue.global.prod.js"
-          integrity="sha384-tORx0bXmMnTC28EYQe1coaGZKSQupXQEYDBNex8xkzJ9iqUoNy9Y+VFBhVxi4kUr"
-          crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/vue-router@4.6.4/dist/vue-router.global.prod.js"
-          integrity="sha384-A4bHjHQxfxIvuD8PBtwmSWs3Iu2iAYs4ay5uVK2xBRObO41s5ZQF3016uyadsK/V"
-          crossorigin="anonymous"></script>
+  <!-- Vue・Vue Router はリポジトリの vendor/ に置いたもの（配布元と同一・SRI で固定）を body の末尾で読み込む。
+       更新手順は README「依存ライブラリの更新」参照 -->
   <!-- 形態素解析 kuromoji は、閲覧者がオンにしたときだけ app.js が SRI 付きで読み込む（URL とハッシュは data/kuromoji-dict.json） -->
 
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
@@ -283,6 +278,38 @@
       max-height: 240px;
     }
 
+    /* 起動中・起動失敗（Vue が動く前に表示する。Vue が起動すると #app の中身ごと置き換わる） */
+    .boot {
+      text-align: center;
+      color: #555;
+      font-size: 14px;
+    }
+
+    .boot.failed { color: #c62828; }
+
+    button.primary:disabled {
+      background: #9e9e9e;
+      cursor: not-allowed;
+    }
+
+    .input-error {
+      margin: 6px 0 0;
+      font-size: 13px;
+      color: #c62828;
+    }
+
+    .load-error {
+      margin-top: 10px;
+      padding: 8px 10px;
+      border: 1px solid #f5c2c2;
+      border-radius: 8px;
+      background: #ffebee;
+      color: #b71c1c;
+      font-size: 13px;
+    }
+
+    .load-error p { margin: 0 0 6px; }
+
     .result {
       margin-top: 15px;
       padding: 10px;
@@ -345,10 +372,47 @@
 </head>
 
 <body>
+  <!-- 起動前の表示。Vue が起動すると、#app の中身は画面（app.js のルート）に置き換わる -->
   <div id="app">
-    <router-view></router-view>
+    <div class="card boot" id="boot" role="status">
+      <p>読み込み中…</p>
+      <noscript><p class="boot failed">この画面を使うには JavaScript を有効にしてください。</p></noscript>
+    </div>
   </div>
 
-  <script type="module" src="app.js"></script>
+  <script>
+    // 画面（Vue）が起動する前に読み込みや実行に失敗したら、「読み込み中…」のままにせず理由を表示する。
+    // 起動後は #boot が無くなるので、何もしない。
+    function tenbinBootError(message) {
+      var boot = document.getElementById("boot");
+      if (!boot) return;
+      boot.className = "card boot failed";
+      boot.setAttribute("role", "alert");
+      boot.innerHTML = "";
+      var p = document.createElement("p");
+      p.textContent = message;
+      var retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "small";
+      retry.textContent = "再読み込み";
+      retry.onclick = function () { location.reload(); };
+      boot.append(p, retry);
+    }
+    var TENBIN_LOAD_ERROR = "画面を読み込めませんでした。通信状況を確認して、再読み込みしてください。";
+    window.addEventListener("error", function () { tenbinBootError(TENBIN_LOAD_ERROR); });
+  </script>
+  <script nomodule>tenbinBootError("このブラウザには対応していません。最新の Chrome・Edge・Safari・Firefox でお試しください。");</script>
+
+  <script src="vendor/vue@3.5.44/vue.global.prod.js"
+          integrity="sha384-tORx0bXmMnTC28EYQe1coaGZKSQupXQEYDBNex8xkzJ9iqUoNy9Y+VFBhVxi4kUr"
+          crossorigin="anonymous"
+          data-upstream="https://unpkg.com/vue@3.5.44/dist/vue.global.prod.js"
+          onerror="tenbinBootError(TENBIN_LOAD_ERROR)"></script>
+  <script src="vendor/vue-router@4.6.4/vue-router.global.prod.js"
+          integrity="sha384-A4bHjHQxfxIvuD8PBtwmSWs3Iu2iAYs4ay5uVK2xBRObO41s5ZQF3016uyadsK/V"
+          crossorigin="anonymous"
+          data-upstream="https://unpkg.com/vue-router@4.6.4/dist/vue-router.global.prod.js"
+          onerror="tenbinBootError(TENBIN_LOAD_ERROR)"></script>
+  <script type="module" src="app.js" onerror="tenbinBootError(TENBIN_LOAD_ERROR)"></script>
 </body>
 </html>

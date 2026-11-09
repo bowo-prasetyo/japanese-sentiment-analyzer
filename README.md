@@ -63,7 +63,7 @@
 ## ✨ 特徴
 
 * 🟢 **サーバ不要**（100%フロントエンド）
-* 🟢 **Vue 3 + Vue Router** によるモダンUI（バージョン固定 + SRI）
+* 🟢 **Vue 3 + Vue Router** によるモダンUI（リポジトリに同梱・バージョン固定 + SRI。CDN が使えなくても動く）
 * 🟢 **JSONベース辞書**でロジックとデータを分離
 * 🟢 **3層モデル（単語 → カテゴリ（レビュー観点・感情）→ 極性）**
 * 🟢 **判定の根拠の可視化**（効いた語・数えなかった語とその理由）
@@ -108,13 +108,19 @@
 
 ### 表示内容（一般向け）
 
-* **判定できません**: 感情を表す辞書の語が1つも見つからなかったとき（中立という判定ではありません）。ユーザー辞書への案内を表示します
+* **判定できません**: 判定に使える語が1つもなかったとき（中立という判定ではありません）。理由を区別して表示し、ユーザー辞書への案内を出します
+  * 辞書の語が見つからなかった
+  * 逆接（けど・のに など）の後半に評価の語がなく、前半の語は後半を優先するため数えなかった
+  * 見つかった語が、条件・説明の中にあるか別の意味で使われていたため数えなかった
+  * 見つかった語が、ポジティブにもネガティブにも働かない語だけだった
+* **空の入力**は判定せず、文の入力を促します
+* **読み込み中・読み込み失敗**: 辞書の読み込み中は「分析」ボタンを押せず、失敗したら理由と「再読み込み」を表示します。画面（Vue）自体を読み込めないときも、白い画面にせず理由を表示します
 
 * 判定結果（ポジティブ / ネガティブ / 中立）
 * **判定スコア**（判定に実際に使う値 = 合計 ÷ √ヒット数。±しきい値以上で判定）
 * 合計スコア・ヒット数
 * **ヒット単語一覧（カテゴリ・極性・変換付き）**
-* **除外した単語**（条件・説明の中にある語や、別の意味で使われた語と、その理由）
+* **数えなかった語**（条件・説明の中にある語、別の意味で使われた語、逆接より前の語と、その理由）。逆接で後半を優先したときは「「けど」より後の内容を優先して判定しました」と表示します
 * **観点別スコア**（レビュー観点ごと。影響の大きい順）と **感情・評価のスコア**
 
 ---
@@ -149,6 +155,7 @@ project/
  ├── index.html          # Vue UI + スタイル
  ├── assets/             # ロゴ・ファビコン（下の「🎨 ロゴ」参照）
  ├── app.js              # Vueアプリ本体（一般向け #/ ・開発者向け #/dev）
+ ├── vendor/             # Vue・Vue Router（配布元と同一のファイル＋ライセンス。SRI で固定）
  ├── ui/
  │    ├── labels.js      # 判定ラベル → 表示名・色の対応（判定できません を含む）
  │    ├── userDictionary.js # ユーザー辞書（検証・統合・書き出し／読み込み・保存）
@@ -165,7 +172,7 @@ project/
  │    └── benchmark/      # 固定ブラインドベンチマーク（b1.json・manifest・履歴）
  ├── scripts/
  │    ├── eval.js        # コマンドラインでの評価
- │    ├── check-cdn.js   # CDN ファイルの SRI 検証（CI 用）
+ │    ├── check-cdn.js   # 配布元（CDN）のファイルの SRI 検証（vendor/ の元ファイル・kuromoji。CI 用）
  │    ├── cdn-scripts.js # index.html の外部スクリプト抽出
  │    ├── benchmark.js   # 固定ブラインドベンチマークの評価（集計のみ）
  │    ├── benchmark-lib.js # ベンチマークの読み込みとハッシュ検証
@@ -360,9 +367,9 @@ Pull Request と `main` への push で次を実行します（`.github/workflow
 
 | ステップ | 内容 |
 | --- | --- |
-| `npm test` | 回帰テスト（否定処理・評価指標・表示ラベル・CDN の固定） |
+| `npm test` | 回帰テスト（否定処理・評価指標・表示ラベル・vendor/ のファイルと SRI の一致） |
 | `npm run eval -- --check` | 開発用・ホールドアウトの Macro-F1 が `data/eval-baseline.json` を下回ったら失敗 |
-| `npm run check:cdn` | `index.html` の CDN ファイルを実際に取得し、SRI ハッシュと一致するか確認 |
+| `npm run check:cdn` | vendor/ のファイルの配布元（`data-upstream`）と kuromoji を実際に取得し、SRI ハッシュと一致するか確認 |
 | `npm run bench -- --summary` | 固定ブラインドベンチマークのスコアをジョブサマリーに**報告**（スコアでは失敗しない。ファイルが改変されていたら失敗） |
 
 ### 辞書を改善したとき
@@ -380,17 +387,22 @@ npm run eval -- --update-baseline
 
 ## 📦 依存ライブラリの更新
 
-Vue と Vue Router は CDN（unpkg）から**正確なバージョン**で読み込み、
-`integrity`（SRI）で改ざんを検知します。更新するときは、URL のバージョンと
-`integrity` の両方を書き換えます。
+Vue と Vue Router は、配布元と**同一のファイル**を `vendor/<パッケージ>@<バージョン>/` に置いて読み込みます
+（CDN が遮断・停止していてもページが動くように）。`index.html` の `<script>` には
+`integrity`（SRI）と、配布元の URL（`data-upstream`）を書きます。
+
+更新するときは、新しいバージョンのフォルダを作り、`index.html` の `src`・`integrity`・`data-upstream` を書き換えます
+（古いフォルダは削除します）。
 
 ```bash
 npm pack vue@<version> && tar xzf vue-<version>.tgz
-echo "sha384-$(openssl dgst -sha384 -binary package/dist/vue.global.prod.js | openssl base64 -A)"
+mkdir -p vendor/vue@<version> && cp package/dist/vue.global.prod.js package/LICENSE vendor/vue@<version>/
+echo "sha384-$(openssl dgst -sha384 -binary vendor/vue@<version>/vue.global.prod.js | openssl base64 -A)"
 ```
 
-`integrity` が間違っているとブラウザはスクリプトを読み込まず、ページが動きません。
-CI の `check:cdn` が PR の段階でこれを検出します。
+* `npm test` が、`vendor/` のファイルのハッシュが `integrity` と一致するかを確認します（改行コードの変換などで中身が変わると失敗）
+* CI の `check:cdn` が、配布元（`data-upstream`）のファイルが同じハッシュか、つまり `vendor/` のファイルが配布元と同一かを確認します
+* `integrity` が間違っているとブラウザはスクリプトを読み込まず、ページは「画面を読み込めませんでした」と表示します
 
 ---
 
